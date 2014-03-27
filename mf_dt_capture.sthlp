@@ -1,23 +1,23 @@
 {smcl}
 {* 26mar2014}{...}
-{cmd:help mata capture()}
+{cmd:help mata dt_capture()}
 {hline}
 
 {title:Title}
 
 {p 4 4 2}
-{bf:capture() {hline 2}} Capture function errors in Mata
+{bf:dt_capture() {hline 2}} Capture function errors in Mata
 
 
 {title:Syntax}
 
 {p 8 20 2}
 {it:real scalar}
-{cmd:capture(}{it:func_ptr}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}
+{cmd:dt_capture(}{it:func_ptr}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}
 
 {p 8 20 2}
 {it:real scalar}
-{cmd:method_capture(}{it:class_name}{cmd:,} {it:func_name}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}
+{cmd:dt_method_capture(}{it:class_name}{cmd:,} {it:func_name}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}
 
 {p 4 8 2}
 where
@@ -41,20 +41,20 @@ where
 {title:Description}
 
 {pstd}
-{cmd:capture()} runs the specified function with the specified arguments. If the
-function aborts with error, {cmd:capture()} returns the error code. If the
-function does not abort with error, {cmd:capture()} returns zero, and puts the
+{cmd:dt_capture()} runs the specified function with the specified arguments. If the
+function aborts with error, {cmd:dt_capture()} returns the error code. If the
+function does not abort with error, {cmd:dt_capture()} returns zero, and puts the
 return value of the function in {it:rv_ptr}, if specified.
 
 {pstd}
-{cmd:method_capture()} does the same for a class method.
+{cmd:dt_method_capture()} does the same for a class method.
 
 
 {title:Examples}
 
 {pstd}
-{cmd:capture()} is useful in the same situations as the Stata command 
-{cmd:capture}. That is, when you want to verify that an error get raised, 
+{cmd:dt_capture()} is useful in the same situations as the Stata command 
+{cmd:capture}. That is, when you want to verify that an error is raised, 
 or when you want to handle an error yourself (or ignore it) rather than 
 let the error halt your program.
 
@@ -74,13 +74,12 @@ sum.
 Suppose your larger goal is to return the sum when possible or return the "." 
 missing value otherwise. You could write a function like this
 
-
             function any_add(a, b) 
             {
                 real scalar rc
-                real matrix rv
+                transmorphic rv
                 
-                rc = capture(&add(), (&a, &b), &rv)
+                rc = dt_capture(&add(), (&a, &b), &rv)
                 if (rc) {
                 	return(.)
                 }
@@ -123,25 +122,25 @@ to be checked with custom code.
 {p 8 8 8}
 Since an error is being raised manually, you should probably write some tests
 to check that the function raises the error you expect exactly when you expect 
-it to. This can be done with {cmd:capture()} and the built-in {cmd:assert()}.
+it to. This can be done with {cmd:dt_capture()} and the built-in {cmd:assert()}.
 Some tests you might write:
 
-            assert( capture(&thin(), &J(10, 1, 1)) == 0 )
-            assert( capture(&thin(), &J(0, 0, 1)) == 0 )
-            assert( capture(&thin(), &J(0, 10, 1)) == 0 )
-            assert( capture(&thin(), &J(10, 2, 1)) == 3200 )
-            assert( capture(&thin(), &J(10, 10, 1)) == 3200 )
+            assert( dt_capture(&thin(), &J(10, 1, 1)) == 0 )
+            assert( dt_capture(&thin(), &J(0, 0, 1)) == 0 )
+            assert( dt_capture(&thin(), &J(0, 10, 1)) == 0 )
+            assert( dt_capture(&thin(), &J(10, 2, 1)) == 3200 )
+            assert( dt_capture(&thin(), &J(10, 10, 1)) == 3200 )
 
 
 {title:Conformability}
 
-    {cmd:capture(}{it:func_ptr}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}:
+    {cmd:dt_capture(}{it:func_ptr}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}:
         {it:func_ptr}:  1 {it:x} 1
         {it:arg_ptrs}:  1 {it:x c}  or  {it:r x} 1  or  zero-dimensional
           {it:rv_ptr}:  1 {it:x} 1
           {it:result}:  1 {it:x} 1.
 
-    {cmd:method_capture(}{it:class_name}{cmd:,} {it:func_name}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}:
+    {cmd:dt_method_capture(}{it:class_name}{cmd:,} {it:func_name}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)}:
       {it:class_name}:  1 {it:x} 1
        {it:func_name}:  1 {it:x} 1
         {it:arg_ptrs}:  1 {it:x c}  or  {it:r x} 1  or  zero-dimensional
@@ -152,25 +151,25 @@ Some tests you might write:
 {title:Diagnostics}
 
 {p 4 8 8}
-{cmd:capture(}{it:func_ptr}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)} aborts
+{cmd:dt_capture(}{it:func_ptr}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)} aborts
 with error if {break}
 {it:func_ptr} is not a pointer to a function,{break}
 {it:arg_ptrs} is not a vector of pointers, or{break}
 {it:rv_ptr} (if used) is not a pointer scalar.
 
 {p 4 8 8}
-{cmd:method_capture(}{it:class_name}{cmd:,} {it:func_name}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)} aborts with error if{break}
+{cmd:dt_method_capture(}{it:class_name}{cmd:,} {it:func_name}{cmd:,} {it:arg_ptrs} [{cmd:,} {it:rv_ptr}]{cmd:)} aborts with error if{break}
 {it:class_name} is not a string scalar,{break}
 {it:func_name} is not a string scalar,{break}
 {it:arg_ptrs} is not a vector of pointers, or{break}
 {it:rv_ptr} (if used) is not a pointer scalar.
 
 {p 4 4 8}
-{cmd:method_capture()} will return 3000 if there is no class with name 
+{cmd:dt_method_capture()} will return 3000 if there is no class with name 
 {it:class_name} or the class has no function with name {it:func_name}.
 
 {pstd}
-{cmd:method_capture()} will not work with classes defined within a function.
+{cmd:dt_method_capture()} will not work with classes defined within a function.
 
 
 {title:Author}
