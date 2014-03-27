@@ -5,17 +5,23 @@
 Creates source documentation from MATA files
 */
 
+vers 12.0
+
 mata:
 
 /**
  * @brief Runs a stata command and captures the error
- * @param stline Stata command
+ * @param stcmd Stata command
  * @returns Integer _rc
  */
-real scalar function dt_stata_cap(string scalar stline) {
+real scalar function dt_stata_cap(string scalar stcmd, | real scalar noisily) {
 	
 	real scalar out
-	stata("cap noi "+stline)
+	
+	/* Running the cmd */
+	if (noisily == 1) stata("cap noi "+stcmd)
+	else stata("cap "+stcmd)
+	
 	stata("local tmp=_rc")
 	out = strtoreal(st_local("tmp"))
 	st_local("tmp","")
@@ -482,6 +488,77 @@ void dt_uninstall_pkg(string scalar pkgname) {
 	}
 	return
 }
+
+/**
+ * @brief Reads a txt file (fast).
+ * @param fn File name.
+ * @param newline New line sep.
+ * @returns A colvector of length = N of lines.
+ */
+string colvector function dt_read_txt(
+	string scalar fn,
+	| string scalar newline
+	)
+{
+	real scalar fh, buffsize
+	string matrix EOF
+	string scalar txt, txttmp
+	string colvector fhv
+	
+	buffsize = 1024*1024
+	
+	if (newline == J(1,1,"")) newline = sprintf("\n")
+	else newline = sprintf(newline)
+	EOF = J(0,0,"")
+	
+	fh = fopen(fn,"r")
+	txttmp = ""
+	while((txt=fread(fh,buffsize)) != EOF) txttmp = txttmp+txt
+	fclose(fh)
+	
+	fhv = tokens(txttmp,newline)'
+	fhv = select(fhv, fhv:!=newline)
+	
+	return(fhv)
+}
+
+
+/**
+ * @brief Run a shell command and retrive its output
+ * @param cmd Shell command to be runned
+ */
+
+string colvector function dt_shell(string scalar cmd) {
+	string scalar tmp
+	real scalar i, err
+	string colvector out
+	
+	/* Running the comand */
+	tmp = st_tempfilename()
+	
+	if ( (err = dt_stata_cap("shell "+cmd+" > "+tmp)) )
+		_error(err, "Couldn't complete the operation")
+	
+	out = dt_read_txt(tmp)
+	unlink(tmp)
+	return(out)
+}
+
+/*
+void dt_git_install(string scalar pkgname, string scalar usr, | string scalar which) {
+
+	string colvector valid_repos
+	valid_repos = ("github","bitbucket","googlecode")
+	
+	/* Checking which version */
+	if (which == J(1,1,"")) which = "github"
+	else if (!length(select(valid_repos,valid_repos:==which)))
+		_error(1,"Invalid repo, try using -github-, -bitbucket- or -googlecode-")
+			
+	/* Check if git is */
+	return
+	
+}*/
  
 end
 
