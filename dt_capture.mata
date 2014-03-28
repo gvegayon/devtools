@@ -1,19 +1,19 @@
 mata
-	class Capture {
+	class dt_Capture {
 		pointer(function) scalar func_ptr
 		pointer matrix arg_ptrs
 		pointer scalar rv_ptr
 	}
 	
-	capture = Capture()
+	dt_capture = dt_Capture()
 	
-	real scalar capture(pointer(function) scalar func_ptr,
-	                    pointer matrix arg_ptrs,
-	                    | pointer scalar rv_ptr)
+	real scalar dt_capture(pointer(function) scalar func_ptr,
+	                       pointer matrix arg_ptrs,
+	                       | pointer scalar rv_ptr)
 	{
 		real scalar rc, i, nargs
 		string scalar run_str, arg_template
-		external class Capture scalar capture
+		external class dt_Capture scalar dt_capture
 		
 		// It seems that any errors in pointer arguments get captured
 		// by the Stata capture below. So, test them here.
@@ -43,17 +43,17 @@ mata
 			exit(_error(3257, "2nd arg should be a vector of pointers"))
 		}
 		
-		capture.func_ptr = func_ptr
-		capture.arg_ptrs = arg_ptrs
+		dt_capture.func_ptr = func_ptr
+		dt_capture.arg_ptrs = arg_ptrs
 		
 		if (args() == 3) {
-			capture.rv_ptr = rv_ptr
-			run_str = "*(capture.rv_ptr) = (*capture.func_ptr)("
+			dt_capture.rv_ptr = rv_ptr
+			run_str = "*(dt_capture.rv_ptr) = (*dt_capture.func_ptr)("
 		}
 		else {
-			run_str = "(*capture.func_ptr)("
+			run_str = "(*dt_capture.func_ptr)("
 		}
-		arg_template = "*(capture.arg_ptrs[%f])%s"
+		arg_template = "*(dt_capture.arg_ptrs[%f])%s"
 		
 		nargs = length(arg_ptrs)
 		for (i = 1; i <= nargs; i++) {
@@ -66,21 +66,21 @@ mata
 		rc = strtoreal(st_local("rc"))
 		
 		// remove references to func_ptr, etc.
-		capture.func_ptr = NULL
-		capture.arg_ptrs = J(0,0,NULL)
-		capture.rv_ptr = NULL
+		dt_capture.func_ptr = NULL
+		dt_capture.arg_ptrs = J(0,0,NULL)
+		dt_capture.rv_ptr = NULL
 		
 		return(rc)
 	}
 	
-	real scalar method_capture(string scalar class_name,
-	                           string scalar func_name, 
-	                           pointer matrix arg_ptrs,
-	                           | pointer scalar rv_ptr)
+	real scalar dt_method_capture(string scalar class_name,
+	                              string scalar func_name, 
+	                              pointer matrix arg_ptrs,
+	                              | pointer scalar rv_ptr)
 	{
 		real scalar rc, i, nargs
 		string scalar run_str, arg_template
-		external class Capture scalar capture
+		external class dt_Capture scalar dt_capture
 		
 		// It seems that any errors in pointer arguments get captured
 		// by the Stata capture below. So, test them here.
@@ -105,17 +105,17 @@ mata
 		}
 		
 		
-		capture.arg_ptrs = arg_ptrs
+		dt_capture.arg_ptrs = arg_ptrs
 		
 		if (args() == 4) {
-			capture.rv_ptr = rv_ptr
-			run_str = "*(capture.rv_ptr) = " + ///
+			dt_capture.rv_ptr = rv_ptr
+			run_str = "*(dt_capture.rv_ptr) = " + ///
 			          class_name + "." + func_name + "("
 		}
 		else {
 			run_str = class_name + "." + func_name + "("
 		}
-		arg_template = "*(capture.arg_ptrs[%f])%s"
+		arg_template = "*(dt_capture.arg_ptrs[%f])%s"
 		
 		nargs = length(arg_ptrs)
 		for (i = 1; i <= nargs; i++) {
@@ -128,8 +128,8 @@ mata
 		rc = strtoreal(st_local("rc"))
 		
 		// remove references
-		capture.arg_ptrs = J(0,0,NULL)
-		capture.rv_ptr = NULL
+		dt_capture.arg_ptrs = J(0,0,NULL)
+		dt_capture.rv_ptr = NULL
 	
 		return(rc)
 	}
