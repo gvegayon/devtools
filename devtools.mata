@@ -5,7 +5,7 @@
 Creates source documentation from MATA files
 */
 
-vers 12.0
+vers 11.0
 
 mata:
 
@@ -14,7 +14,7 @@ mata:
  * @param stcmd Stata command
  * @returns Integer _rc
  */
-real scalar function dt_stata_cap(string scalar stcmd, | real scalar noisily) {
+real scalar function dt_stata_capture(string scalar stcmd, | real scalar noisily) {
 	
 	real scalar out
 	
@@ -29,6 +29,159 @@ real scalar function dt_stata_cap(string scalar stcmd, | real scalar noisily) {
 	return(out)
 }
 
+/**
+ * @brief Random name generation
+ */
+string scalar function dt_random_name(| real scalar n) {
+	
+	string scalar output
+	string vector letters
+	real scalar i
+	
+	if (n == J(1,1,.)) n = 10
+	
+	letters = (tokens(c("alpha")), strofreal(0..9))'
+	output = "_"
+	
+	for(i=1;i<=n;i++) output=output+jumble(letters)[1]
+	
+	return(output)
+}
+
+/**
+ * @brief Run a shell command and retrive its output
+ * @param cmd Shell command to be runned
+ */
+string colvector function dt_shell(string scalar cmd) {
+	string scalar tmp
+	real scalar i, err
+	string colvector out
+	
+	/* Running the comand */
+	tmp = dt_random_name()
+	
+	if ( (err = dt_stata_capture("shell "+cmd+" > "+tmp)) )
+		_error(err, "Couldn't complete the operation")
+	
+	out = dt_read_txt(tmp)
+	unlink(tmp)
+	return(out)
+}
+
+/**
+ * @brief Erase using OS
+ */
+void function dt_erase_file(string scalar fns, | string scalar out) {
+	
+	string scalar cmd
+	
+	if (c("OS") == "Windows") cmd = "shell erase /F "+fns
+	else cmd = "shell rm -f "+fns
+	
+	if (args()>1) out = cmd
+	else stata(cmd)
+	
+	return
+}
+
+/**
+ * @brief Copy using OS
+ * @param fn1 Original file
+ * @param fn2 New filename
+ * @param out Optional, if specified then the cmd is not executed, rather it stores it at -out-
+ * @returns A force copy from -fn1- to -fn2-
+ */
+void function dt_copy_file(string scalar fn1, string scalar fn2, | string scalar out) {
+
+	string scalar cmd
+
+	if (c("OS") == "Windows") cmd = "shell copy /Y "+fn1+" "+fn2
+	else cmd = "shell cp -f "+fn1+" "+fn2
+	
+	if (args()>2) out = cmd
+	else stata(cmd)
+	
+	return
+}
+
+ 
+/**
+ * @brief Restarts stata
+ * @param cmd Comand to execute after restarting stata
+ * @returns Restarts stata, loads data and executes -cmd-
+ */
+void function dt_restart_stata(| string scalar cmd, real scalar ext) {
+
+	real scalar fh
+	real scalar isdta, ismata
+	string scalar tmpcmd
+	
+	/* Checking if a dataset is loaded */
+	if ( (isdta = c("N") | c("k")) )
+	{
+		string scalar tmpdta, dtaname
+		dtaname = c("filename")
+		tmpdta = dt_random_name()+".dta"
+		stata("save "+tmpdta+", replace")
+	}
+	
+	/* Checking if profile file already exists */
+	real scalar isprofile
+	isprofile = fileexists("profile.do")
+	
+	string scalar tmpprofile
+	tmpprofile=dt_random_name()+".do"
+	
+	if (isprofile)
+	{
+		dt_copy_file("profile.do", tmpprofile)
+		fh = fopen("profile.do","a")
+	}
+	else fh = fopen("profile.do","w")
+	
+	if (isdta) fput(fh, "use "+tmpdta+", clear")
+	/* if (ismat) fput( */
+	
+	if (cmd != J(1,1,"")) fput(fh, cmd)
+	
+	/* Operations to occur right after loading the data*/
+	if (isprofile)
+	{	
+		dt_copy_file(tmpprofile, "profile.do", tmpcmd)
+		fput(fh, tmpcmd)
+		fput(fh, "erase "+tmpprofile)
+	}
+	else 
+	{
+		dt_erase_file("profile.do", tmpcmd)
+		fput(fh, tmpcmd)
+	}
+	
+	/* Modifying data */
+	if (isdta)
+	{
+		fput(fh, "erase "+tmpdta)
+		fput(fh, "global S_FN ="+dtaname)
+	}
+	
+	fclose(fh)
+	
+	if (args()==1) ext=1
+	
+	if (!dt_stata_capture("winexec C:\Program Files (x86)\Stata12/Stata-64.exe"))
+		if (ext==1)
+			stata("exit, clear")
+	else 
+	{
+		if (isprofile)
+		{
+			dt_copy_file(tmpprofile,"profile.do")
+			unlink(tmpprofile)
+		}
+		else dt_erase_file("profile.do")
+		if (isdta) unlink(tmpdta)
+	}
+}
 
 /**
  * @brief Builds a help file from a MATA source file.
@@ -347,7 +500,7 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 	for(i=1;i<=length(fns);i++)
 	{
 	"copy "+fns[i]+" "+tmpdir+fns[i]
-		if (dt_stata_cap("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
+		if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
 		{
 			fclose(fh)
 			unlink(tmpdir+"stata.toc")
@@ -363,7 +516,7 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 	stata("cap ado unistall "+pkgname)
 	
 	real scalar cap
-	if (cap=dt_stata_cap("net install "+pkgname+", from("+tmpdir+") force replace"))
+	if (cap=dt_stata_capture("net install "+pkgname+", from("+tmpdir+") force replace"))
 	{
 		unlink(tmpdir+"stata.toc")
 		for(i=1;i<=length(fns);i++)
@@ -409,7 +562,9 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 		}
 	}*/
 
-	return
+	dt_restart_stata(sprintf("%s\n%s","mata mata mlib index",`"mata display("Package -"'+pkgname+`"- correctly installed")"'),0)
+	
+	stata("exit, clear")
 }
 
 /**
@@ -451,6 +606,8 @@ void dt_lookupregex(string scalar regex , | string colvector fns) {
  * @returns Nothing
  */
 void dt_uninstall_pkg(string scalar pkgname) {
+
+	string scalar pkgs
 	string scalar logname, regex, line, tmppkg
 	real scalar fh, counter
 
@@ -475,7 +632,7 @@ void dt_uninstall_pkg(string scalar pkgname) {
 			{
 				tmppkg = regexs(1)
 				display("Will remove the package "+tmppkg+" ("+pkgname+")")
-				if (dt_stata_cap("ado uninstall "+tmppkg)) continue
+				if (dt_stata_capture("ado uninstall "+tmppkg)) continue
 				else counter = counter + 1
 			}
 		}
@@ -520,28 +677,6 @@ string colvector function dt_read_txt(
 	fhv = select(fhv, fhv:!=newline)
 	
 	return(fhv)
-}
-
-
-/**
- * @brief Run a shell command and retrive its output
- * @param cmd Shell command to be runned
- */
-
-string colvector function dt_shell(string scalar cmd) {
-	string scalar tmp
-	real scalar i, err
-	string colvector out
-	
-	/* Running the comand */
-	tmp = st_tempfilename()
-	
-	if ( (err = dt_stata_cap("shell "+cmd+" > "+tmp)) )
-		_error(err, "Couldn't complete the operation")
-	
-	out = dt_read_txt(tmp)
-	unlink(tmp)
-	return(out)
 }
 
 /*
