@@ -166,11 +166,15 @@ void function dt_restart_stata(| string scalar cmd, real scalar ext) {
 	
 	fclose(fh)
 	
-	if (args()==1) ext=1
+	if (ext==J(1,1,.)) ext=1
 	
-	if (!dt_stata_capture("winexec C:\Program Files (x86)\Stata12/Stata-64.exe"))
-		if (ext==1)
-			stata("exit, clear")
+	string scalar statapath
+	statapath = dt_stata_path(1)
+	
+	if (!dt_stata_capture("winexec "+statapath))
+	{
+		if (ext==1) stata("exit, clear")
+	}
 	else 
 	{
 		if (isprofile)
@@ -563,17 +567,18 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 	}*/
 
 	dt_restart_stata(sprintf("%s\n%s","mata mata mlib index",`"mata display("Package -"'+pkgname+`"- correctly installed")"'),0)
-	
 	stata("exit, clear")
+	
 }
 
 /**
  * @brief Looks up for a regex within a list of plain text files
  * @param regex Regex to lookup for
+ * @param fixed Whether to interpret the regex arg as a regex or not (1: Not, 0: Yes)
  * @param fns List of files to look in (default is to take all .do .ado .hlp .sthlp and .mata)
  * @returns Coordinates (line:file) where the regex was found 
  */
-void dt_lookupregex(string scalar regex , | string colvector fns) {
+void dt_lookuptxt(string scalar pattern , | real scalar fixed, string colvector fns) {
 	
 	if (!length(fns)) fns = dir(".","files","*.do")\dir(".","files","*.ado")\dir(".","files","*.mata")
 	
@@ -591,8 +596,17 @@ void dt_lookupregex(string scalar regex , | string colvector fns) {
 		j=0
 		while((line=fget(fh)) != J(0,0,"")) {
 			j = j+1
-			if (regexm(line, regex))
-				printf("In line %g on file %s\n", j,fns[i])
+
+			if (fixed)
+			{
+				if (strmatch(line,"*"+pattern+"*"))
+					printf("In line %g on file %s\n", j, fns[i])
+			}
+			else
+			{
+				if (regexm(line, pattern))
+					printf("In line %g on file %s\n", j,fns[i])
+			}
 		}
 
 		fclose(fh)
@@ -654,15 +668,21 @@ void dt_uninstall_pkg(string scalar pkgname) {
  */
 string colvector function dt_read_txt(
 	string scalar fn,
-	| string scalar newline
+	| string scalar newline,
+	real scalar buffsize
 	)
 {
-	real scalar fh, buffsize
+	real scalar fh
 	string matrix EOF
 	string scalar txt, txttmp
 	string colvector fhv
 	
-	buffsize = 1024*1024
+	if (buffsize == J(1,1,.)) buffsize = 1024*1024
+	else if (buffsize > 1024*1024)
+	{
+		buffsize = 1024*1024
+		display("Max allowed buffsize : 1024*1024")
+	}
 	
 	if (newline == J(1,1,"")) newline = sprintf("\n")
 	else newline = sprintf(newline)
@@ -677,6 +697,60 @@ string colvector function dt_read_txt(
 	fhv = select(fhv, fhv:!=newline)
 	
 	return(fhv)
+}
+
+/**
+ * @brief Builds stata exe path
+ * @returns Stata exe path
+ */
+string scalar dt_stata_path(|real scalar xstata) {
+
+	string scalar bit, flv
+	string scalar statadir
+	if (xstata==J(1,1,.)) xstata=0
+
+	// Is it 64bits?
+	if (c("osdtl") != "" | c("bit") == 64) bit = "-64"
+	else bit = ""
+	
+	// Building fullpath name
+	string scalar sxstata
+	sxstata = (xstata ? "x" : "")
+
+	if (c("os") == "Windows") { // WINDOWS
+		if (c("MP")) flv = "MP"
+		else if (c("SE")) flv = "SE"
+		else if (c("flavor") == "Small") flv = "SM"
+		else if (c("flavor") == "IC") flv = ""
+	
+		/* If the version is less than eleven */
+		if (c("stata_version") < 11) statadir = c("sysdir_stata")+"w"+flv+"Stata.exe"
+		else statadir = c("sysdir_stata")+"Stata"+flv+bit+".exe"
+
+	}
+	else if (regexm(c("os"), "^MacOS.*")) { // MACOS
+	
+		if (c("stata_version") < 11 & (c("osdtl") != "" | c("bit") == 64)) bit = "64"
+		else bit = ""
+	
+		if (c("MP")) flv = "Stata"+bit+"MP" 
+		else if (c("SE")) flv = "Stata"+bit+"SE"
+		else if (c("flavor") == "Small") flv = "smStata"
+		else if (c("flavor") == "IC") flv = "Stata"+bit
+		
+		statadir = c("sysdir_stata")+flv+".app/Contents/MacOS/"+sxstata+flv
+	}
+	else { // UNIX
+		if (c("MP")) flv = "stata-mp" 
+		else if (c("SE")) flv = "stata-se"
+		else if (c("flavor") == "Small") flv = "stata-sm"
+		else if (c("flavor") == "IC") flv = "stata"
+	
+		statadir = c("sysdir_stata")+sxstata+flv
+	}
+
+	if (!regexm(statadir, `"^["]"')) return(`"""'+statadir+`"""')
+	else return( statadir )
 }
 
 /*
