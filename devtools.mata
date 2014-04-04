@@ -52,15 +52,18 @@ string scalar function dt_random_name(| real scalar n) {
  * @brief Run a shell command and retrive its output
  * @param cmd Shell command to be runned
  */
-string colvector function dt_shell(string scalar cmd) {
-	string scalar tmp
+string colvector function dt_shell(string scalar cmd , | real scalar sh) {
+	string scalar tmp, prg
 	real scalar i, err
 	string colvector out
+
+	if (sh == 1) prg = "shell"
+	else prg = "winexec"
 	
 	/* Running the comand */
 	tmp = dt_random_name()
 	
-	if ( (err = dt_stata_capture("shell "+cmd+" > "+tmp)) )
+	if ( (err = dt_stata_capture(prg+" "+cmd+" > "+tmp)) )
 		_error(err, "Couldn't complete the operation")
 	
 	out = dt_read_txt(tmp)
@@ -71,12 +74,15 @@ string colvector function dt_shell(string scalar cmd) {
 /**
  * @brief Erase using OS
  */
-void function dt_erase_file(string scalar fns, | string scalar out) {
+void function dt_erase_file(string scalar fns, | string scalar out, real scalar sh) {
 	
-	string scalar cmd
+	string scalar cmd, prg
+
+	if (sh == 1) prg = "shell"
+	else prg = "winexec"
 	
-	if (c("OS") == "Windows") cmd = "shell erase /F "+fns
-	else cmd = "shell rm -f "+fns
+	if (c("OS") == "Windows") cmd = "winexec erase /F "+fns
+	else cmd = "winexec rm -f "+fns
 	
 	if (args()>1) out = cmd
 	else stata(cmd)
@@ -91,12 +97,15 @@ void function dt_erase_file(string scalar fns, | string scalar out) {
  * @param out Optional, if specified then the cmd is not executed, rather it stores it at -out-
  * @returns A force copy from -fn1- to -fn2-
  */
-void function dt_copy_file(string scalar fn1, string scalar fn2, | string scalar out) {
+void function dt_copy_file(string scalar fn1, string scalar fn2, | string scalar out, real scalar sh) {
 
-	string scalar cmd
+	string scalar cmd, prg
 
-	if (c("OS") == "Windows") cmd = "shell copy /Y "+fn1+" "+fn2
-	else cmd = "shell cp -f "+fn1+" "+fn2
+	if (sh == 1) prg = "shell"
+	else prg = "winexec"
+
+	if (c("OS") == "Windows") cmd = prg+" copy /Y "+fn1+" "+fn2
+	else cmd = prg+" cp -f "+fn1+" "+fn2
 	
 	if (args()>2) out = cmd
 	else stata(cmd)
@@ -173,7 +182,7 @@ void function dt_restart_stata(| string scalar cmd, real scalar ext) {
 	
 	if (!dt_stata_capture("winexec "+statapath))
 	{
-		if (ext==1) stata("exit, clear")
+		if (ext) stata("exit, clear")
 	}
 	else 
 	{
@@ -185,6 +194,7 @@ void function dt_restart_stata(| string scalar cmd, real scalar ext) {
 		else dt_erase_file("profile.do")
 		if (isdta) unlink(tmpdta)
 	}
+	return
 }
 
 /**
@@ -205,6 +215,9 @@ void dt_moxygen(
 	string scalar fn, line, funname, regexp_fun_head, rxp_oxy_brief, rxp_oxy_param, rxp_oxy_returns, rxp_oxy_auth, oxy
 	string vector eltype_list, orgtype_list
 	
+	string scalar tab
+	tab = "([\s ]|"+sprintf("\t")+")*"
+	
 	////////////////////////////////////////////////////////////////////////////////
 	/* Building regexp for match functions headers */
 	// mata
@@ -212,7 +225,7 @@ void dt_moxygen(
 	orgtype_list = "matrix", "vector", "rowvector", "colvector", "scalar"
 	
 	/* Every single combination */
-	regexp_fun_head = "^(void|"
+	regexp_fun_head = "^"+tab+"(void|"
 	for(i=1;i<=length(eltype_list);i++)
 		for(j=1;j<=length(orgtype_list);j++)
 			regexp_fun_head = regexp_fun_head+eltype_list[i]+"[\s ]+"+orgtype_list[j]+"|"
@@ -224,12 +237,12 @@ void dt_moxygen(
 	for(i=1;i<=length(orgtype_list);i++)
 		if(i!=length(orgtype_list)) regexp_fun_head = regexp_fun_head+orgtype_list[i]+"|"
 		else regexp_fun_head = regexp_fun_head+orgtype_list[i]+")[\s ]*(function)?[\s ]+([a-zA-Z0-9_]+)[(]"
-		
+	regexp_fun_head	
 	/* MATA oxygen */
-	rxp_oxy_brief   = "^[\s ]*[*][\s ]*@brief[\s ]+(.*)"
-	rxp_oxy_param   = "^[\s ]*[*][\s ]*@param[\s ]+([a-zA-Z0-9_]+)[\s ]*(.*)"	
-	rxp_oxy_returns = "^[\s ]*[*][\s ]*@(returns?|results?)[\s ]*(.*)"
-	rxp_oxy_auth    = "^[\s ]*[*][\s ]*@authors?[\s ]+(.*)"
+	rxp_oxy_brief   = "^"+tab+"[*][\s ]*@brief[\s ]+(.*)"
+	rxp_oxy_param   = "^"+tab+"[*][\s ]*@param[\s ]+([a-zA-Z0-9_]+)[\s ]*(.*)"	
+	rxp_oxy_returns = "^"+tab+"[*][\s ]*@(returns?|results?)[\s ]*(.*)"
+	rxp_oxy_auth    = "^"+tab+"[*][\s ]*@authors?[\s ]+(.*)"
 
 	/*if (regexm("void build_source_doc(", regexp_fun_head))
 		regexs(1), regexs(3)
@@ -278,9 +291,9 @@ void dt_moxygen(
 			while((line = fget(fh_input)) != J(0,0,""))
 			{
 				/* MATAoxygen */
-				if (regexm(line, "^[/][*]([*]|[!])(d?oxygen)?[\s ]*$") | inOxygen) {
+				if (regexm(line, "^"+tab+"[/][*]([*]|[!])(d?oxygen)?"+tab+"$") | inOxygen) {
 				
-					if (regexm(line, "^[\s ]*[*][/][\s ]*$"))
+					if (regexm(line, "^"+tab+"[*][/]"+tab+"$"))
 					{
 						inOxygen = 0
 						continue
@@ -291,37 +304,37 @@ void dt_moxygen(
 					
 					if (regexm(line, rxp_oxy_brief))
 					{
-						oxy = sprintf("\n*!{dup 78:{c -}}\n*!{col 4}{it:%s}",regexs(1))
+						oxy = sprintf("\n*!{dup 78:{c -}}\n*!{col 4}{it:%s}",regexs(2))
 						continue
 					}
 					if (regexm(line, rxp_oxy_auth))
 					{
 						if (!nauthors++) oxy = oxy+sprintf("\n*!{col 4}{bf:author(s):}")
-						oxy = oxy+sprintf("\n*!{col 6}{it:%s}",regexs(1))
+						oxy = oxy+sprintf("\n*!{col 6}{it:%s}",regexs(2))
 						continue
 					}
 					if (regexm(line, rxp_oxy_param))
 					{
 						if (!nparams++) oxy = oxy+sprintf("\n*!{col 4}{bf:parameters:}")
-						oxy = oxy+sprintf("\n*!{col 6}{bf:%s}{col 20}%s",regexs(1),regexs(2))
+						oxy = oxy+sprintf("\n*!{col 6}{bf:%s}{col 20}%s",regexs(2),regexs(3))
 						continue
 					}
 					if (regexm(line, rxp_oxy_returns))
 					{
-						oxy = oxy+sprintf("\n*!{col 4}{bf:%s:}\n*!{col 6}{it:%s}", regexs(1), regexs(2))
+						oxy = oxy+sprintf("\n*!{col 4}{bf:%s:}\n*!{col 6}{it:%s}", regexs(2), regexs(3))
 						continue
 					}
 				}
-				
 				/* Checking if it is a function header */
 				if (regexm(line, regexp_fun_head)) 
 				{
-					funname = regexs(3)
+					funname = regexs(4)
+					
 					fput(fh_output, "{smcl}")
 					fput(fh_output, "*! {marker "+funname+"}{bf:function -{it:"+funname+"}- in file -{it:"+fn+"}-}")
 					fwrite(fh_output, "*! {back:{it:(previous page)}}")
 					
-					sprintf("{help %s##%s:%s}", regexr(output, "[.]sthlp$|[.]hlp$", ""), funname, funname)
+//					printf("{help %s##%s:%s}", regexr(output, "[.]sthlp$|[.]hlp$", ""), funname, funname)
 					if (oxy!="") {
 						fwrite(fh_output, oxy)
 						oxy      = ""
@@ -529,6 +542,8 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 		_error(cap,"An error has occurred while installing.")
 	}
 
+	stata("mata mata mlib index")
+	
 	/*
 	/* Restarting dataset */
 	if (c("N") | c("k")) 
@@ -566,9 +581,9 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 		}
 	}*/
 
-	dt_restart_stata(sprintf("%s\n%s","mata mata mlib index",`"mata display("Package -"'+pkgname+`"- correctly installed")"'),0)
-	stata("exit, clear")
+	display("Package -"+pkgname+"- correctly installed")
 	
+	return
 }
 
 /**
