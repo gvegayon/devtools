@@ -9,11 +9,11 @@ mata
 	dt_capture = dt_Capture()
 
 	/**
-	 * @brief Capture mata functions errors
-	 * @param func_pointer  pointer to a function (i.e., a pointer(function) scalar)
+	 * @brief Capture Mata function errors
+	 * @param func_pointer pointer to a function (i.e., a pointer(function) scalar)
 	 * @param arg_ptrs vector containing pointers to the intended arguments, or a zero-dimensional matrix if the function takes no arguments
 	 * @param rv_ptr (optional) is a pointer to a pre-defined variable that will hold the return value of the function if it doesn't abort with error
-	 * @returns smthg
+	 * @returns real scalar error code (zero if no error)
 	 */
 	real scalar dt_capture(pointer(function) scalar func_ptr,
 	                       pointer matrix arg_ptrs,
@@ -81,6 +81,14 @@ mata
 		return(rc)
 	}
 	
+	/**
+	 * @brief Capture errors in Mata class functions
+	 * @param class_name string name of class
+	 * @param func_name string name of function
+	 * @param arg_ptrs vector containing pointers to the intended arguments, or a zero-dimensional matrix if the function takes no arguments
+	 * @param rv_ptr (optional) is a pointer to a pre-defined variable that will hold the return value of the function if it doesn't abort with error
+	 * @returns real scalar error code (zero if no error)
+	 */
 	real scalar dt_method_capture(string scalar class_name,
 	                              string scalar func_name, 
 	                              pointer matrix arg_ptrs,
