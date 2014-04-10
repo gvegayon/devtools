@@ -4,6 +4,10 @@ mata
 * @brief Get dataset characteristics from Stata as associative array
 * @param evar (optional) scalar containing variable number, variable name, or "_dta"
 * @returns associative array
+* @demo
+* stata("sysuse auto, clear")
+* dtachars = dt_st_chars("_dta")
+* asarray_keys(dtachars)
 */
 transmorphic dt_st_chars(| transmorphic scalar evar)
 {

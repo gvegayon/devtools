@@ -13,6 +13,13 @@ mata:
  * @brief Runs a stata command and captures the error
  * @param stcmd Stata command
  * @returns Integer _rc
+ * @demo
+ * /* This is a demo */
+ * x = dt_stata_capture(`"di "halo""', 1)
+ * x
+ * /* Capturing error */
+ * x = dt_stata_capture(`"di halo"', 1)
+ * x
  */
 real scalar function dt_stata_capture(string scalar stcmd, | real scalar noisily) {
 	
@@ -31,6 +38,12 @@ real scalar function dt_stata_capture(string scalar stcmd, | real scalar noisily
 
 /**
  * @brief Random name generation
+ * @param n Char length
+ * @demo
+ * /* Random name of length 10 */
+ * dt_random_name()
+ * /* Random name of length 5 */
+ * dt_random_name(5)
  */
 string scalar function dt_random_name(| real scalar n) {
 	
@@ -39,6 +52,7 @@ string scalar function dt_random_name(| real scalar n) {
 	real scalar i
 	
 	if (n == J(1,1,.)) n = 10
+	n = n - 1 
 	
 	letters = (tokens(c("alpha")), strofreal(0..9))'
 	output = "_"
@@ -51,19 +65,22 @@ string scalar function dt_random_name(| real scalar n) {
 /**
  * @brief Run a shell command and retrive its output
  * @param cmd Shell command to be runned
+ * @demo
+ * /* Printing on the screen */
+ * dt_shell("echo This works!")
+ * @demo
+ * /* Getting a list of files */
+ * dt_shell("dir")
  */
-string colvector function dt_shell(string scalar cmd , | real scalar sh) {
+string colvector function dt_shell(string scalar cmd) {
 	string scalar tmp, prg
 	real scalar i, err
 	string colvector out
-
-	if (sh == 1) prg = "shell"
-	else prg = "winexec"
 	
 	/* Running the comand */
 	tmp = dt_random_name()
 	
-	if ( (err = dt_stata_capture(prg+" "+cmd+" > "+tmp)) )
+	if ( (err = dt_stata_capture("shell "+cmd+" > "+tmp)) )
 		_error(err, "Couldn't complete the operation")
 	
 	out = dt_read_txt(tmp)
@@ -212,7 +229,9 @@ void dt_moxygen(
 	
 	/* Setup */
 	real scalar i, j, fh_input, fh_output
-	string scalar fn, line, funname, regexp_fun_head, rxp_oxy_brief, rxp_oxy_param, rxp_oxy_returns, rxp_oxy_auth, oxy
+	string scalar fn, line, funname
+	string scalar regexp_fun_head, rxp_oxy_brief, rxp_oxy_param, rxp_oxy_returns, rxp_oxy_auth, oxy
+	string scalar rxp_oxy_demo
 	string vector eltype_list, orgtype_list
 	
 	string scalar tab
@@ -237,12 +256,13 @@ void dt_moxygen(
 	for(i=1;i<=length(orgtype_list);i++)
 		if(i!=length(orgtype_list)) regexp_fun_head = regexp_fun_head+orgtype_list[i]+"|"
 		else regexp_fun_head = regexp_fun_head+orgtype_list[i]+")[\s ]*(function)?[\s ]+([a-zA-Z0-9_]+)[(]"
-	regexp_fun_head	
+	
 	/* MATA oxygen */
 	rxp_oxy_brief   = "^"+tab+"[*][\s ]*@brief[\s ]+(.*)"
 	rxp_oxy_param   = "^"+tab+"[*][\s ]*@param[\s ]+([a-zA-Z0-9_]+)[\s ]*(.*)"	
 	rxp_oxy_returns = "^"+tab+"[*][\s ]*@(returns?|results?)[\s ]*(.*)"
 	rxp_oxy_auth    = "^"+tab+"[*][\s ]*@authors?[\s ]+(.*)"
+	rxp_oxy_demo = "^"+tab+"[*][\s ]*@demo(.*)"
 
 	/*if (regexm("void build_source_doc(", regexp_fun_head))
 		regexs(1), regexs(3)
@@ -284,16 +304,21 @@ void dt_moxygen(
 			fput(fh_output, "*! {c BLC}{dup 78:{c -}}{c BRC}")
 			
 			oxy = ""
-			real scalar nparams, inOxygen, nauthors
+			real scalar nparams, inOxygen, nauthors, inDemo, nDemos
+			string scalar demostr, demoline
 			nparams  = 0
 			nauthors = 0
 			inOxygen = 0
+			inDemo   = 0
+			demostr  = ""
+			demoline = ""
+			nDemos   = 0
 			while((line = fget(fh_input)) != J(0,0,""))
 			{
 				/* MATAoxygen */
 				if (regexm(line, "^"+tab+"[/][*]([*]|[!])(d?oxygen)?"+tab+"$") | inOxygen) {
 				
-					if (regexm(line, "^"+tab+"[*][/]"+tab+"$"))
+					if (regexm(line, "^"+tab+"[*][/]"+tab+"$") & !inDemo)
 					{
 						inOxygen = 0
 						continue
@@ -324,6 +349,39 @@ void dt_moxygen(
 						oxy = oxy+sprintf("\n*!{col 4}{bf:%s:}\n*!{col 6}{it:%s}", regexs(2), regexs(3))
 						continue
 					}
+					if (regexm(line, rxp_oxy_demo) | inDemo)
+					{
+						string scalar democmd
+						
+						/* Checking if it ended with another oxy object */
+						if ((regexm(line, rxp_oxy_demo) & inDemo) | regexm(line, "^"+tab+"@") | regexm(line, "^"+tab+"[*][/]"+tab+"$")) 
+						{
+							
+							oxy      = oxy + sprintf("\n%s\n%s dt_enddem():({it:click to run})}\n",demostr,demoline)
+							demostr  = ""
+							demoline = ""
+							inDemo   = 0
+							
+						}
+									
+						/* When it first enters */
+						if (regexm(line, rxp_oxy_demo) & !inDemo)
+						{
+							demoline = "{matacmd dt_inidem();"
+							demostr  = ""
+							inDemo   = 1
+							nDemos   = nDemos + 1
+							
+							oxy = oxy + sprintf("\n*!{col 4}{bf:Demo %g}", nDemos)
+							continue
+						}
+						
+						democmd = sprintf("%s", regexr(line,"^"+tab+"[*]",""))
+						
+						if (!regexm(democmd,"^"+tab+"/[*](.*)[*]/")) demoline = demoline+democmd+";"
+						demostr  = demostr+sprintf("\n%s",democmd)
+						continue
+					}
 				}
 				/* Checking if it is a function header */
 				if (regexm(line, regexp_fun_head)) 
@@ -341,6 +399,7 @@ void dt_moxygen(
 						nparams  = 0
 						nauthors = 0
 						inOxygen = 0
+						nDemos   = 0
 					}
 					fput(fh_output,sprintf("\n*!{dup 78:{c -}}{asis}"))
 				}
@@ -369,9 +428,33 @@ void dt_moxygen(
 }
 
 /**
+ * @brief Begins a demo
+ */
+void function dt_inidem(|string scalar demoname, real scalar preserve) {
+	if (args() < 2 | preserve == 1) stata("preserve")
+	display("{txt}{hline 2} begin demo {hline}")
+	display("")
+	return
+}
+
+/**
+ * @brief Ends a demo
+ */
+void function dt_enddem(| real scalar preserve) {
+	if (args() < 1 | preserve == 1) stata("restore")
+	display("")
+	display("{txt}{hline 2} end demo {hline}")
+	return
+}
+
+/**
  * @brief Recursive highlighting for mata.
  * @param line String to highlight.
  * @returns A highlighted text (to use with display)
+ * @demo
+ * txt = dt_highlight(`"build(1+1-less(h)- signa("hola") + 1 - insert("chao"))"')
+ * txt
+ * display(txt)
  */
 string scalar dt_highlight(string scalar line) {
 	string scalar frac, newline
@@ -414,18 +497,16 @@ string scalar dt_highlight(string scalar line) {
 	return("{text:"+line+newline+"}")
 }
 
-/*
-txt = dt_highlight(`"build(1+1-less(h)- signa("hola") + 1 - insert("chao"))"')
-txt
-display(txt)
-*/
-
 /**
  * @brief Split a text into many lines
  * @param txt Text to analize (and split)
  * @param n Max line width
  * @param s Indenting for the next lines
  * @returns A text splitted into several lines.
+ * @demo
+ * printf(dt_txt_split("There was this little fella who once jumped into the water...\n", 10, 2))
+ * @demo
+ * printf(dt_txt_split("There was this little fella who once jumped into the water...\n", 15, 4))
  */
 string scalar function dt_txt_split(string scalar txt, | real scalar n, real scalar indent) {
 
@@ -454,8 +535,6 @@ string scalar function dt_txt_split(string scalar txt, | real scalar n, real sca
 		
 	return(newtxt)
 }
-
-// printf(dt_txt_split("Hola joe, como estais",8,2))
 
 /**
  * @brief Builds a temp source help
@@ -717,6 +796,8 @@ string colvector function dt_read_txt(
 /**
  * @brief Builds stata exe path
  * @returns Stata exe path
+ * @demo
+ * dt_stata_path()
  */
 string scalar dt_stata_path(|real scalar xstata) {
 
