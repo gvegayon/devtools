@@ -21,7 +21,9 @@ available functions is:
 * `dt_read_txt()` Fast plain text importing into MATA.
 * `dt_stata_path()` Retriving stata's exe path.
 * `dt_capture()` Capturing a MATA function.
-* `dt_st_chars()` Retriving Stata characteristics.
+* `dt_getchars()` Retrieving Stata characteristics as associative arrray.
+* `dt_setchars()` Set Stata characteristics from associative array.
+* `dt_vlasarray()` Stata value label <-> Mata associative array.
 
 Plus a set of functions to build and call modules' (packages') demos!
 
