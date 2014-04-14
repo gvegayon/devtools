@@ -1,4 +1,4 @@
-*! vers 0.14.3 18mar2014
+*! vers 0.14.4 14apr2014
 *! author: George G. Vega Yon
 
 /* BULID SOURCE_DOC 
@@ -566,7 +566,15 @@ void function dt_moxygen_preview(| string vector fns, string scalar output, real
  * @param fns A list of the files that should be installed
  * @returns 
  */
-void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
+void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns, string scalar pkgdir) {
+
+	string scalar olddir
+	olddir = c("pwd")
+	if (args() < 3) pkgdir = c("pwd")
+
+	if (dt_stata_capture("cd "+pkgdir))
+		_error(1, "Couldn't find the -"+pkgdir+"- dir")
+
 	if (fns==J(1,1,"")) fns = dir(".","files","*.mlib")\dir(".","files","*.ado")\dir(".","files","*.sthlp")\dir(".","files","*.hlp")
 	
 	if (!length(fns)) return
@@ -587,27 +595,43 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 	
 	/* Creating the pkg file */
 	unlink(tmpdir+pkgname+".pkg")
-	fh = fopen(tmpdir+pkgname+".pkg","w")
-	
-	fput(fh, "v 3")
-	fput(fh, "d "+pkgname+" A package created by -devtools-.")
-	fput(fh, "d Distribution-Date:"+sprintf("%tdCYND",date(c("current_date"),"DMY")))
-	fput(fh, "d Author: "+c("username"))
-	for(i=1;i<=length(fns);i++)
+	if (fileexists(pkgname+".pkg")) /* if the package file exists, there is no need to build it!*/
 	{
-	"copy "+fns[i]+" "+tmpdir+fns[i]
-		if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
+		dt_copy_file(pkgname, tmpdir+pkgname)
+		for(i=1;i<=length(fns);i++)
 		{
-			fclose(fh)
-			unlink(tmpdir+"stata.toc")
-			_error("Can't continue: Error while copying the file "+fns[i])
+			display("copy "+fns[i]+" "+tmpdir+fns[i])
+			if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
+			{
+				fclose(fh)
+				unlink(tmpdir+"stata.toc")
+				_error("Can't continue: Error while copying the file "+fns[i])
+			}			
+		}
+	}
+	else
+	{
+		fh = fopen(tmpdir+pkgname+".pkg","w")
+		
+		fput(fh, "v 3")
+		fput(fh, "d "+pkgname+" A package created by -devtools-.")
+		fput(fh, "d Distribution-Date:"+sprintf("%tdCYND",date(c("current_date"),"DMY")))
+		fput(fh, "d Author: "+c("username"))
+		for(i=1;i<=length(fns);i++)
+		{
+			display("copy "+fns[i]+" "+tmpdir+fns[i])
+			if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
+			{
+				fclose(fh)
+				unlink(tmpdir+"stata.toc")
+				_error("Can't continue: Error while copying the file "+fns[i])
+			}
+			
+			fput(fh,"F "+fns[i])
 		}
 		
-		fput(fh,"F "+fns[i])
+		fclose(fh)
 	}
-	
-	fclose(fh)
-	
 	/* Installing the package */
 	stata("cap ado unistall "+pkgname)
 	
@@ -660,6 +684,7 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns) {
 		}
 	}*/
 
+	stata("cap cd "+olddir)
 	display("Package -"+pkgname+"- correctly installed")
 	
 	return
@@ -849,21 +874,97 @@ string scalar dt_stata_path(|real scalar xstata) {
 	else return( statadir )
 }
 
-/*
+/**
+ * @brief Install a module from a git repo
+ * @param pkgname Name of the package (repo)
+ * @param usr Name of the repo owner
+ * @param which Whether to install it from github, bitbucket or googlecode
+ */
 void dt_git_install(string scalar pkgname, string scalar usr, | string scalar which) {
 
-	string colvector valid_repos
+	string colvector valid_repos, out
+	string scalar uri
 	valid_repos = ("github","bitbucket","googlecode")
 	
 	/* Checking which version */
 	if (which == J(1,1,"")) which = "github"
 	else if (!length(select(valid_repos,valid_repos:==which)))
 		_error(1,"Invalid repo, try using -github-, -bitbucket- or -googlecode-")
+
+	/* Checking git */
+	out = dt_shell("git --version")
+	if (!length(out)) 
+		_error(1, "Git is not install in your OS.")
+	else if (!regexm(out[1,1],"^git version"))
+		_error(1, "Git is not install in your OS.")
 			
 	/* Check if git is */
+	if (which=="github") uri = sprintf("https://github.com/%s/%s.git", usr, pkgname)
+
+	out = dt_shell("git clone "+uri+" "+c("tmpdir")+"/"+pkgname)
+	if (regexm(out[1,1],"^(e|E)rror"))
+	{
+		out
+		_error(1,"Could connect to git repo")
+	}
+
+	dt_install_on_the_fly(pkgname,J(1,1,""),c("tmpdir")+"/"+pkgname)
+
 	return
 	
-}*/
+}
  
-end
+/**
+ * @brief recursively list files
+ * @param pattern File pattern such as '*mlib *ado'
+ * @param regex (Unix systems only) 1 to specify that the pattern is a regex
+ * @returns a list of files with their full path names
+ * @demo
+ * /* List of all the files */
+ * dt_list_files()
+ * @demo
+ * /* List of ado files */
+ * dt_list_files("*ado")
+ */
+string colvector function dt_list_files(|string scalar pattern, real scalar regex)
+{
+	string colvector files
+	real scalar nfiles,i
+	if (c("os")=="Windows")	
+	{
+		/* Retrieving the files from windows */
+		files = dt_shell("dir /S /B "+pattern)
+		nfiles=length(files)
+		
+		/* Removing trailing return */
+		for(i=1;i<=nfiles;i++)
+			files[i] = subinstr(files[i],sprintf("\r"),"")
+			
+	}
+	else
+	{
+		/* Retrieving the files from Unix */
+		if (strlen(pattern))
+		{
+			/* Preparing regex */
+			if (args() < 2 | regex == 1)
+			{
+				pattern = subinstr(pattern,"*","",.)
+				pattern = subinstr(pattern,".","\.",.)
+				pattern = ".+("+subinstr(stritrim(strtrim(pattern))," ","|")+")$"
+			}
+			files = dt_shell("find . | grep -E '"+pattern+"'")
+		}
+		else files = dt_shell("find .")
+		
+		nfiles = length(files)
+		
+		/* Replacing dots */
+		for(i=1;i<=nfiles;i++)
+			files[i] = regexr(files[i],"^\.",c("pwd"))
+		
+	}
+	return(files)
+}
 
+end
