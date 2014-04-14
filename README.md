@@ -24,6 +24,8 @@ available functions is:
 * `dt_getchars()` Retrieving Stata characteristics as associative arrray.
 * `dt_setchars()` Set Stata characteristics from associative array.
 * `dt_vlasarray()` Stata value label <-> Mata associative array.
+* `dt_git_install()` Install a stata pkg from a git repo.
+* `dt_dt_list_files()` List files recursively.
 
 Plus a set of functions to build and call modules' (packages') demos!
 
