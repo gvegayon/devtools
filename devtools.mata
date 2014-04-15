@@ -84,6 +84,13 @@ string colvector function dt_shell(string scalar cmd) {
 		_error(err, "Couldn't complete the operation")
 	
 	out = dt_read_txt(tmp)
+
+	/* Removing cr (windows)*/
+	real scalar nout
+	if ((nout=length(out)) & c("os") == "Windows")
+		for(i=1;i<=nout;i++)
+			out[i] = regexr(out[i],sprintf("\r")+"+$","")
+
 	unlink(tmp)
 	return(out)
 }
@@ -933,13 +940,7 @@ string colvector function dt_list_files(|string scalar pattern, real scalar rege
 	if (c("os")=="Windows")	
 	{
 		/* Retrieving the files from windows */
-		files = dt_shell("dir /S /B "+pattern)
-		nfiles=length(files)
-		
-		/* Removing trailing return */
-		for(i=1;i<=nfiles;i++)
-			files[i] = subinstr(files[i],sprintf("\r"),"")
-			
+		files = dt_shell("dir /S /B "+pattern)	
 	}
 	else
 	{
@@ -968,3 +969,4 @@ string colvector function dt_list_files(|string scalar pattern, real scalar rege
 }
 
 end
+
