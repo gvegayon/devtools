@@ -221,218 +221,7 @@ void function dt_restart_stata(| string scalar cmd, real scalar ext) {
 	return
 }
 
-/**
- * @brief Builds a help file from a MATA source file.
- * @param fns A List of mata files.
- * @param output Name of the resulting file
- * @param replace Whether to replace or not a hlp file.
- * @returns A nice help file showing source code.
- */
-void dt_moxygen(
-	string vector fns,
-	string scalar output,
-	| real scalar replace)
-{
-	
-	/* Setup */
-	real scalar i, j, fh_input, fh_output
-	string scalar fn, line, funname
-	string scalar regexp_fun_head, rxp_oxy_brief, rxp_oxy_param, rxp_oxy_returns, rxp_oxy_auth, oxy
-	string scalar rxp_oxy_demo
-	string vector eltype_list, orgtype_list
-	
-	string scalar tab
-	tab = "([\s ]|"+sprintf("\t")+")*"
-	
-	////////////////////////////////////////////////////////////////////////////////
-	/* Building regexp for match functions headers */
-	// mata
-	eltype_list  = "transmorphic", "numeric", "real", "complex", "string", "pointer"
-	orgtype_list = "matrix", "vector", "rowvector", "colvector", "scalar"
-	
-	/* Every single combination */
-	regexp_fun_head = "^"+tab+"(void|"
-	for(i=1;i<=length(eltype_list);i++)
-		for(j=1;j<=length(orgtype_list);j++)
-			regexp_fun_head = regexp_fun_head+eltype_list[i]+"[\s ]+"+orgtype_list[j]+"|"
-	
-	/* Single element */
-	for(i=1;i<=length(eltype_list);i++)
-		regexp_fun_head = regexp_fun_head+eltype_list[i]+"|"
-	
-	for(i=1;i<=length(orgtype_list);i++)
-		if(i!=length(orgtype_list)) regexp_fun_head = regexp_fun_head+orgtype_list[i]+"|"
-		else regexp_fun_head = regexp_fun_head+orgtype_list[i]+")[\s ]*(function)?[\s ]+([a-zA-Z0-9_]+)[(]"
-	
-	/* MATA oxygen */
-	rxp_oxy_brief   = "^"+tab+"[*][\s ]*@brief[\s ]+(.*)"
-	rxp_oxy_param   = "^"+tab+"[*][\s ]*@param[\s ]+([a-zA-Z0-9_]+)[\s ]*(.*)"	
-	rxp_oxy_returns = "^"+tab+"[*][\s ]*@(returns?|results?)[\s ]*(.*)"
-	rxp_oxy_auth    = "^"+tab+"[*][\s ]*@authors?[\s ]+(.*)"
-	rxp_oxy_demo = "^"+tab+"[*][\s ]*@demo(.*)"
 
-	/*if (regexm("void build_source_doc(", regexp_fun_head))
-		regexs(1), regexs(3)
-	regexp_fun_head
-	
-	end*/
-	
-	////////////////////////////////////////////////////////////////////////////////
-	if (replace == J(1,1,.)) replace = 1
-	
-	/* Checks if the file has to be replaced */
-	if (!regexm(output, "[.]hlp$|[.]sthlp$")) output = output + ".sthlp"
-	if (fileexists(output) & !replace)
-	{
-		errprintf("File -%s- already exists. Set -replace- option to 1.", output)
-		exit(0)
-	}
-	
-	/* Starting the hlp file */
-	if (fileexists(output)) unlink(output)
-	fh_output = fopen(output, "w", 1)
-	
-	/* Looping over files */
-	for(i=1;i<=length(fns);i++)
-	{
-		/* Picking the ith filename */
-		fn = fns[i]
-		
-		/* If it exists */
-		if (fileexists(fn))
-		{
-			/* Opening the file */
-			fh_input = fopen(fn, "r")
-			
-			/* Header of the file */
-			fput(fh_output, "*! {smcl}")
-			fput(fh_output, "*! {c TLC}{dup 78:{c -}}{c TRC}")
-			fput(fh_output, "*! {c |} {bf:Beginning of file -"+fn+"-}{col 83}{c |}")
-			fput(fh_output, "*! {c BLC}{dup 78:{c -}}{c BRC}")
-			
-			oxy = ""
-			real scalar nparams, inOxygen, nauthors, inDemo, nDemos
-			string scalar demostr, demoline
-			nparams  = 0
-			nauthors = 0
-			inOxygen = 0
-			inDemo   = 0
-			demostr  = ""
-			demoline = ""
-			nDemos   = 0
-			while((line = fget(fh_input)) != J(0,0,""))
-			{
-				/* MATAoxygen */
-				if (regexm(line, "^"+tab+"[/][*]([*]|[!])(d?oxygen)?"+tab+"$") | inOxygen) {
-				
-					if (regexm(line, "^"+tab+"[*][/]"+tab+"$") & !inDemo)
-					{
-						inOxygen = 0
-						continue
-					}
-					
-					/* Incrementing the number of oxygen lines */
-					if (!inOxygen++) line = fget(fh_input)
-					
-					if (regexm(line, rxp_oxy_brief))
-					{
-						oxy = sprintf("\n*!{dup 78:{c -}}\n*!{col 4}{it:%s}",regexs(2))
-						continue
-					}
-					if (regexm(line, rxp_oxy_auth))
-					{
-						if (!nauthors++) oxy = oxy+sprintf("\n*!{col 4}{bf:author(s):}")
-						oxy = oxy+sprintf("\n*!{col 6}{it:%s}",regexs(2))
-						continue
-					}
-					if (regexm(line, rxp_oxy_param))
-					{
-						if (!nparams++) oxy = oxy+sprintf("\n*!{col 4}{bf:parameters:}")
-						oxy = oxy+sprintf("\n*!{col 6}{bf:%s}{col 20}%s",regexs(2),regexs(3))
-						continue
-					}
-					if (regexm(line, rxp_oxy_returns))
-					{
-						oxy = oxy+sprintf("\n*!{col 4}{bf:%s:}\n*!{col 6}{it:%s}", regexs(2), regexs(3))
-						continue
-					}
-					if (regexm(line, rxp_oxy_demo) | inDemo)
-					{
-						string scalar democmd
-						
-						/* Checking if it ended with another oxy object */
-						if ((regexm(line, rxp_oxy_demo) & inDemo) | regexm(line, "^"+tab+"@") | regexm(line, "^"+tab+"[*][/]"+tab+"$")) 
-						{
-							
-							oxy      = oxy + sprintf("\n%s\n%s dt_enddem():({it:click to run})}\n",demostr,demoline)
-							demostr  = ""
-							demoline = ""
-							inDemo   = 0
-							
-						}
-									
-						/* When it first enters */
-						if (regexm(line, rxp_oxy_demo) & !inDemo)
-						{
-							demoline = "{matacmd dt_inidem();"
-							demostr  = ""
-							inDemo   = 1
-							nDemos   = nDemos + 1
-							
-							oxy = oxy + sprintf("\n*!{col 4}{bf:Demo %g}", nDemos)
-							continue
-						}
-						
-						democmd = sprintf("%s", regexr(line,"^"+tab+"[*]",""))
-						
-						if (!regexm(democmd,"^"+tab+"/[*](.*)[*]/")) demoline = demoline+democmd+";"
-						demostr  = demostr+sprintf("\n%s",democmd)
-						continue
-					}
-				}
-				/* Checking if it is a function header */
-				if (regexm(line, regexp_fun_head)) 
-				{
-					funname = regexs(4)
-					
-					fput(fh_output, "{smcl}")
-					fput(fh_output, "*! {marker "+funname+"}{bf:function -{it:"+funname+"}- in file -{it:"+fn+"}-}")
-					fwrite(fh_output, "*! {back:{it:(previous page)}}")
-					
-//					printf("{help %s##%s:%s}", regexr(output, "[.]sthlp$|[.]hlp$", ""), funname, funname)
-					if (oxy!="") {
-						fwrite(fh_output, oxy)
-						oxy      = ""
-						nparams  = 0
-						nauthors = 0
-						inOxygen = 0
-						nDemos   = 0
-					}
-					fput(fh_output,sprintf("\n*!{dup 78:{c -}}{asis}"))
-				}
-				fput(fh_output, subinstr(line, char(9), "    "))
- 
-			}
-						
-			fclose(fh_input)
-			
-			/* Footer of the file */
-			fput(fh_output, "*! {smcl}")
-			fput(fh_output, "*! {c TLC}{dup 78:{c -}}{c TRC}")
-			fput(fh_output, "*! {c |} {bf:End of file -"+fn+"-}{col 83}{c |}")
-			fput(fh_output, "*! {c BLC}{dup 78:{c -}}{c BRC}")
-			
-			continue
-		}
-		
-		/* If it does not exists */
-		printf("File -%s- doesn't exists\n", fn)
-		continue
-				
-	}
-	
-	fclose(fh_output)
-}
 
 /**
  * @brief Begins a demo
@@ -543,55 +332,47 @@ string scalar function dt_txt_split(string scalar txt, | real scalar n, real sca
 	return(newtxt)
 }
 
-/**
- * @brief Builds a temp source help
- * @param fns A vector of file names to be parsed for Mata oxygen.
- * @param output Name of the output file.
- * @param replace Whether to replace the file or not.
- * @returns a hlp file (and a view of it).
- */
-void function dt_moxygen_preview(| string vector fns, string scalar output, real scalar replace) {
-
-	/* Filling emptyness */
-	if (fns == J(1, 0, ""))  fns = dir(".","files","*.mata")
-	if (output == J(1,1,"")) {
-		output  = st_tempfilename()
-		replace = 1
-	}
-	
-	/* Building and viewing */
-	dt_moxygen(fns, output, replace)
-	
-	stata("view "+output)
-	
-	return
-	
-}
 
 /** 
  * @brief Install a stata module on the fly
  * @param fns A list of the files that should be installed
  * @returns 
  */
-void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns, string scalar pkgdir) {
-
+void function dt_install_on_the_fly(
+	|string scalar pkgname,
+	string rowvector fns,
+	string scalar pkgdir
+) 
+{
+	/* Setting the folder */
 	string scalar olddir
 	olddir = c("pwd")
 	if (args() < 3) pkgdir = c("pwd")
 
 	if (dt_stata_capture("cd "+pkgdir))
 		_error(1, "Couldn't find the -"+pkgdir+"- dir")
+		
+	/* If a pkg file exists, then use it! */
+	if (fileexists(pkgname+".pkg")) {
+		string colvector pkgf
+		pkgf = dt_read_txt(pkgname+".pkg")
+			real scalar i
+		fns = J(1,0,"")
+		for(i=1; i<= length(pkgf);i++)
+			if (regexm(pkgf[i], "^(f|F)[\s ]+(.+)")) fns = fns, regexs(2)
+	}
 
-	if (fns==J(1,1,"")) fns = dir(".","files","*.mlib")\dir(".","files","*.ado")\dir(".","files","*.sthlp")\dir(".","files","*.hlp")
-	
+	/* Listing the files */
+	if (fns==J(1,0,"")) fns = (dir(".","files","*.mlib")\dir(".","files","*.ado")\dir(".","files","*.sthlp")\dir(".","files","*.hlp"))'
+		
 	if (!length(fns)) return
 	
-	real scalar fh, i
+	real scalar fh
 	string scalar fn, toc, tmpdir
 
 	if (!regexm(tmpdir = c("tmpdir"),"([/]|[\])$")) 
 		tmpdir = tmpdir+"/"
-	tmpdir
+	
 	if (pkgname == J(1,1,"")) pkgname = "__mytmppgk"
 	
 	/* Creating tmp toc */
@@ -604,10 +385,10 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns, s
 	unlink(tmpdir+pkgname+".pkg")
 	if (fileexists(pkgname+".pkg")) /* if the package file exists, there is no need to build it!*/
 	{
-		dt_copy_file(pkgname, tmpdir+pkgname)
+		dt_copy_file(pkgname+".pkg", tmpdir+pkgname+".pkg")
 		for(i=1;i<=length(fns);i++)
 		{
-			display("copy "+fns[i]+" "+tmpdir+fns[i])
+			// display("copy "+fns[i]+" "+tmpdir+fns[i])
 			if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
 			{
 				fclose(fh)
@@ -621,12 +402,12 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns, s
 		fh = fopen(tmpdir+pkgname+".pkg","w")
 		
 		fput(fh, "v 3")
-		fput(fh, "d "+pkgname+" A package created by -devtools-.")
+		fput(fh, "d "+pkgname+" A package compiled by -devtools-.")
 		fput(fh, "d Distribution-Date:"+sprintf("%tdCYND",date(c("current_date"),"DMY")))
 		fput(fh, "d Author: "+c("username"))
 		for(i=1;i<=length(fns);i++)
 		{
-			display("copy "+fns[i]+" "+tmpdir+fns[i])
+			// display("copy "+fns[i]+" "+tmpdir+fns[i])
 			if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
 			{
 				fclose(fh)
@@ -643,7 +424,7 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns, s
 	stata("cap ado unistall "+pkgname)
 	
 	real scalar cap
-	if (cap=dt_stata_capture("net install "+pkgname+", from("+tmpdir+") force replace"))
+	if (cap=dt_stata_capture("net install "+pkgname+", from("+tmpdir+") force replace", 1))
 	{
 		unlink(tmpdir+"stata.toc")
 		for(i=1;i<=length(fns);i++)
@@ -654,46 +435,105 @@ void function dt_install_on_the_fly(|string scalar pkgname, string scalar fns, s
 
 	stata("mata mata mlib index")
 	
-	/*
-	/* Restarting dataset */
-	if (c("N") | c("k")) 
-	{
-		if (c("os") != "Windows") 
-		{ // MACOS/UNIX
-			unlink("__pll"+parallelid+"_shell.sh")
-			fh = fopen("__pll"+parallelid+"_shell.sh","w", 1)
-			// fput(fh, "echo Stata instances PID:")
-			
-			// Writing file
-			if (c("os") != "Unix") 
-			{
-				for(i=1;i<=nclusters;i++) 
-					fput(fh, paralleldir+" -e do __pll"+parallelid+"_do"+strofreal(i)+".do &")
-			}
-			else 
-			{
-				for(i=1;i<=nclusters;i++) 
-					fput(fh, paralleldir+" -b do __pll"+parallelid+"_do"+strofreal(i)+".do &")
-			}
-			
-			fclose(fh)
-			
-			// stata("shell sh __pll"+parallelid+"shell.sh&")
-			stata("winexec sh __pll"+parallelid+"_shell.sh")
-		}
-		else 
-		{ // WINDOWS
-			for(i=1;i<=nclusters;i++) 
-			{
-				// Lunching procces
-				stata("winexec "+paralleldir+" /e /q do __pll"+parallelid+"_do"+strofreal(i)+".do ")
-			}
-		}
-	}*/
-
 	stata("cap cd "+olddir)
 	display("Package -"+pkgname+"- correctly installed")
 	
+	return
+}
+
+/**
+ * @brief Equivalent to unix -less-
+ * @param fname Name of the file to do less
+ * @return void
+ */
+void function dt_less(string scalar fname)
+{
+	string colvector ftxt
+	
+	if (!fileexists(fname))
+		_error(1, "The file -"+fname+"- does not exists.")
+		
+	ftxt = dt_read_txt(fname)
+	
+	real scalar i, n
+	n =length(ftxt)
+	for(i=1;i<=n;i++)
+		printf("{text}"+ftxt[i]+"\n")
+		
+	return
+}
+
+/**
+ * @brief Creates a .pkg file
+ * @param pkgnb Name of the pakage and its description
+ * @param fns List of files to be included in the package
+ * @param replace whether to replace or not existing pkg files
+ * @param pkgdir Dir where the package files lie
+ * @demo
+ * /* Creating an empty file */
+ * dt_create_pkg("myexamplepkg",("a.ado","b.ado","a.sthlp","b.sthlp","lab.mlib"))
+ * stata("view myexamplepkg.pkg")
+ * dt_erase_file("myexamplepkg.pkg")
+ */
+void function dt_create_pkg(
+	string scalar pkgnb , 
+	| string rowvector fns,
+	real scalar replace,
+	string scalar auth,
+	string scalar description,
+	string scalar pkgdir
+	)
+{
+
+	/* Parsing pkgnamed (name and description) */
+	pkgnb = strtrim(pkgnb)
+	
+	string scalar pkgname, pkgbrief
+	
+	pkgname  = ""
+	pkgbrief = ""
+	if (regexm(pkgnb, "^([a-zA-Z0-9_]+) (.+)"))
+	{
+		pkgname  = regexs(1)
+		pkgbrief = regexs(2)
+	}
+
+	/* Setting the folder */
+	string scalar olddir
+	olddir = c("pwd")
+	if (args() < 6) pkgdir = c("pwd")
+
+	if (dt_stata_capture("cd "+pkgdir))
+		_error(1, "Couldn't find the -"+pkgdir+"- dir")
+
+	/* Listing the files */
+	if (fns==J(1,1,"")) fns = (dir(".","files","*.mlib")\dir(".","files","*.ado")\dir(".","files","*.sthlp")\dir(".","files","*.hlp"))'
+	
+	if (!length(fns)) return
+	
+	real scalar fh, i
+	string scalar fn
+	
+	/* Checking the replace */
+	if (replace ==J(1,1,.)) replace = 0
+		
+	/* Creating the pkg file */
+	if (fileexists(pkgname+".pkg") & replace) unlink(pkgname+".pkg")
+	else if (fileexists(pkgname+".pkg") & !replace)
+		_error(1, "The file -"+pkgname+".pkg- already exists.")
+	
+
+	fh = fopen(pkgname+".pkg","w")
+	
+	fput(fh, "v 3")
+	fput(fh, "d "+pkgname+ " " + (pkgbrief == ""? "A package compiled by -devtools-." : pkgbrief) )
+	fput(fh, "d Distribution-Date:"+sprintf("%tdCYND",date(c("current_date"),"DMY")))
+	fput(fh, "d Author: "+(auth == J(1,1,"") ? c("username") : auth) )
+	for(i=1;i<=length(fns);i++)		
+		fput(fh,"F "+fns[i])
+	
+	fclose(fh)
+
 	return
 }
 

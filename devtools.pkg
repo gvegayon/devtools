@@ -1,0 +1,7 @@
+v 3
+d devtools Tools for the stata developer.
+d Distribution-Date:20140415
+d Author: George Vega, James Fiedler
+F ldevtools.mlib
+F devtools_source.hlp
+F mf_dt_capture.sthlp
