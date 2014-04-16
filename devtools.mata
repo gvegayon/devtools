@@ -778,7 +778,7 @@ string scalar dt_stata_path(|real scalar xstata) {
 void dt_git_install(
 	string scalar pkgname,
 	| string scalar usr,
-	string scalar which
+	string scalar which,
 	string scalar usrpass
 	) {
 
