@@ -78,7 +78,8 @@ string colvector function dt_shell(string scalar cmd) {
 	string colvector out
 	
 	/* Running the comand */
-	tmp = dt_random_name()
+	while(fileexists(tmp = dt_random_name()))
+		continue	
 	
 	if ( (err = dt_stata_capture("shell "+cmd+" > "+tmp)) )
 		_error(err, "Couldn't complete the operation")
