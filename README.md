@@ -27,7 +27,8 @@ available functions is:
 * `dt_git_install()` Install a stata pkg from a git repo.
 * `dt_list_files()` List files recursively.
 * `dt_create_pkg()` Create a pkg file.
-* `dt_less()` Stata equivalent for UNIX less.
+* `dt_shell_return()` A wrapper of `shell` which retrives OS cmdline exit status.
+* `dt_rename_file()` Rename a file through OS cmdline.
 
 Plus a set of functions to build and call modules' (packages') demos!
 

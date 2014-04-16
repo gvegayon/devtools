@@ -89,29 +89,98 @@ string colvector function dt_shell(string scalar cmd) {
 	real scalar nout
 	if ((nout=length(out)) & c("os") == "Windows")
 		for(i=1;i<=nout;i++)
-			out[i] = regexr(out[i],sprintf("\r")+"+$","")
+			out[i] = subinstr(out[i],sprintf("\r"),"")
 
 	unlink(tmp)
 	return(out)
 }
 
 /**
+ * @brief Run a shell command and returns the exit status
+ */
+real scalar function dt_shell_return(string scalar cmd)
+{
+	string scalar cmdtxt
+	if (c("os") == "Windows")
+	{
+		/* Writing tmp file which captures the error */
+		string scalar batname
+		real scalar fh
+		while(fileexists(batname = tmpfilename()+".bat"))
+			continue
+		fh = fopen(batname,"w")
+		fwrite(fh, sprintf("echo %%ERRORLEVEL%%"))
+		fclose(fh)
+		
+		cmdtxt = "@echo off & "+cmd+" & "+batname
+	}
+	else cmdtxt = cmd+"; echo $?"
+
+	return(strtoreal(dt_shell(cmdtxt)))
+}
+
+/**
+ * @brief Renames a file using OS
+ */
+real scalar function dt_rename_file(string scalar fn1, string scalar fn2)
+{
+	/* Checking that both files exists */
+	if (!fileexists(fn1)) _error(1, sprintf("File -%s- does not exitst.",fn1))
+	if (fileexists(fn2)) _error(1, sprintf("File -%s- already exitst.",fn2))
+	
+	if (c("os") == "Windows") return(dt_shell_return("rename "+fn1+" "+fn2))
+	else return(dt_shell_return("mv -f "+fn1+" "+fn2))
+}
+
+/**
  * @brief Erase using OS
  */
-void function dt_erase_file(string scalar fns, | string scalar out, real scalar sh) {
+real scalar function dt_erase_file(string scalar fns, | string scalar out) {
 	
-	string scalar cmd, prg
+	string scalar cmd
+	
+	if (c("os") == "Windows")
+	{
+		fns = subinstr(fns, "/","\",.)
+		cmd = " erase /F "+fns
+	}
+	else cmd = " rm -f "+fns
+	
+	if (args()>1)
+	{
+		out = cmd
+		return(0)
+	}
+	else
+	{
+		return(dt_shell_return(cmd))
+	}
+}
 
-	if (sh == 1) prg = "shell"
-	else prg = "winexec"
+/**
+ * @brief Dir recursively using OS
+ */
+real scalar function dt_erase_dir(string scalar xdir, | string scalar out) {
 	
-	if (c("OS") == "Windows") cmd = "winexec erase /F "+fns
-	else cmd = "winexec rm -f "+fns
+	string scalar cmd
 	
-	if (args()>1) out = cmd
-	else stata(cmd)
+	if (c("os") == "Windows")
+	{
+		xdir = subinstr(xdir, "/", "\", .)
+		cmd = "rmdir /S "+xdir
+	}
+	else cmd = "rm -f -r "+xdir
 	
-	return
+	if (args()>1)
+	{
+		out = cmd
+		return(0)
+	}
+	else
+	{
+		return(dt_shell_return(cmd))
+	}
+	
 }
 
 /**
@@ -121,20 +190,29 @@ void function dt_erase_file(string scalar fns, | string scalar out, real scalar 
  * @param out Optional, if specified then the cmd is not executed, rather it stores it at -out-
  * @returns A force copy from -fn1- to -fn2-
  */
-void function dt_copy_file(string scalar fn1, string scalar fn2, | string scalar out, real scalar sh) {
+real scalar function dt_copy_file(string scalar fn1, string scalar fn2, | string scalar out) {
 
-	string scalar cmd, prg
-
-	if (sh == 1) prg = "shell"
-	else prg = "winexec"
-
-	if (c("OS") == "Windows") cmd = prg+" copy /Y "+fn1+" "+fn2
-	else cmd = prg+" cp -f "+fn1+" "+fn2
+	string scalar cmd
 	
-	if (args()>2) out = cmd
-	else stata(cmd)
+	if (c("os") == "Windows")
+	{
+		/* Avoiding modifier errors */
+		fn1 = subinstr(fn1, "/", "\", .)
+		fn2 = subinstr(fn2, "/", "\", .)
+		cmd = "copy /Y "+fn1+" "+fn2
+	}
+	else cmd = " cp -f "+fn1+" "+fn2
 	
-	return
+	cmd
+	if (args()>2)
+	{
+		out = cmd
+		return(0)
+	}
+	else 
+	{
+		return(dt_shell_return(cmd))
+	}
 }
 
  
@@ -332,7 +410,6 @@ string scalar function dt_txt_split(string scalar txt, | real scalar n, real sca
 	return(newtxt)
 }
 
-
 /** 
  * @brief Install a stata module on the fly
  * @param fns A list of the files that should be installed
@@ -346,17 +423,18 @@ void function dt_install_on_the_fly(
 {
 	/* Setting the folder */
 	string scalar olddir
-	olddir = c("pwd")
-	if (args() < 3) pkgdir = c("pwd")
+	olddir = pwd()
+	if (args() < 3) pkgdir = pwd()
 
 	if (dt_stata_capture("cd "+pkgdir))
 		_error(1, "Couldn't find the -"+pkgdir+"- dir")
 		
 	/* If a pkg file exists, then use it! */
-	if (fileexists(pkgname+".pkg")) {
+	if (fileexists(pkgname+".pkg")) 
+	{
 		string colvector pkgf
 		pkgf = dt_read_txt(pkgname+".pkg")
-			real scalar i
+		real scalar i
 		fns = J(1,0,"")
 		for(i=1; i<= length(pkgf);i++)
 			if (regexm(pkgf[i], "^(f|F)[\s ]+(.+)")) fns = fns, regexs(2)
@@ -365,101 +443,71 @@ void function dt_install_on_the_fly(
 	/* Listing the files */
 	if (fns==J(1,0,"")) fns = (dir(".","files","*.mlib")\dir(".","files","*.ado")\dir(".","files","*.sthlp")\dir(".","files","*.hlp"))'
 		
-	if (!length(fns)) return
+	if (!length(fns))
+		_error(1,"No files found to be installed at -"+pkgdir+"-")
 	
 	real scalar fh
 	string scalar fn, toc, tmpdir
-
-	if (!regexm(tmpdir = c("tmpdir"),"([/]|[\])$")) 
-		tmpdir = tmpdir+"/"
 	
 	if (pkgname == J(1,1,"")) pkgname = "__mytmppgk"
 	
 	/* Creating tmp toc */
-	if (fileexists(tmpdir+"stata.toc")) unlink(tmpdir+"stata.toc")
+	real scalar tocexists, exitstatus
+	string scalar tmptocname
+	if (fileexists("stata.toc"))
+	{
+		tocexists = 1
+		while (fileexists(tmptocname=dt_random_name())) 
+			continue
+		exitstatus = dt_rename_file("stata.toc", tmptocname)
+		if (exitstatus)
+		{
+			stata("cap cd "+olddir)
+			_error(1, "Couldn't rename the file -stata.toc-.")
+		}
+	}
+	else tocexists = 0
+	
 	fh = fopen(tmpdir+"stata.toc","w")
 	fput(fh, sprintf("v0\ndseveral packages\n")+"p "+pkgname)
 	fclose(fh)
 	
 	/* Creating the pkg file */
-	unlink(tmpdir+pkgname+".pkg")
-	if (fileexists(pkgname+".pkg")) /* if the package file exists, there is no need to build it!*/
+	real scalar cap, pkgexists
+	if (!(pkgexists = fileexists(pkgname+".pkg")))
 	{
-		dt_copy_file(pkgname+".pkg", tmpdir+pkgname+".pkg")
-		for(i=1;i<=length(fns);i++)
-		{
-			// display("copy "+fns[i]+" "+tmpdir+fns[i])
-			if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
-			{
-				fclose(fh)
-				unlink(tmpdir+"stata.toc")
-				_error("Can't continue: Error while copying the file "+fns[i])
-			}			
-		}
-	}
-	else
-	{
-		fh = fopen(tmpdir+pkgname+".pkg","w")
+		fh = fopen(pkgname+".pkg","w")
 		
 		fput(fh, "v 3")
 		fput(fh, "d "+pkgname+" A package compiled by -devtools-.")
 		fput(fh, "d Distribution-Date:"+sprintf("%tdCYND",date(c("current_date"),"DMY")))
 		fput(fh, "d Author: "+c("username"))
-		for(i=1;i<=length(fns);i++)
-		{
-			// display("copy "+fns[i]+" "+tmpdir+fns[i])
-			if (dt_stata_capture("copy "+fns[i]+" "+tmpdir+fns[i]+", replace"))
-			{
-				fclose(fh)
-				unlink(tmpdir+"stata.toc")
-				_error("Can't continue: Error while copying the file "+fns[i])
-			}
-			
+		for(i=1;i<=length(fns);i++)			
 			fput(fh,"F "+fns[i])
-		}
 		
 		fclose(fh)
 	}
 	/* Installing the package */
-	stata("cap ado unistall "+pkgname)
+	// stata("cap ado unistall "+pkgname)
 	
-	real scalar cap
-	if (cap=dt_stata_capture("net install "+pkgname+", from("+tmpdir+") force replace", 1))
+	if (cap=dt_stata_capture("net install "+pkgname+", from("+pkgdir+") force replace", 1))
 	{
-		unlink(tmpdir+"stata.toc")
-		for(i=1;i<=length(fns);i++)
-			unlink(tmpdir+fns[i])
-		
+		unlink("stata.toc")
+		if (tocexists) exitstatus = dt_rename_file(tmptocname,"stata.toc")
+		if (!pkgexists) unlink(pkgname+".pkg")
+		stata("cap cd "+olddir)
 		_error(cap,"An error has occurred while installing.")
 	}
 
-	stata("mata mata mlib index")
+	stata("cap mata mata mlib index")
 	
 	stata("cap cd "+olddir)
-	display("Package -"+pkgname+"- correctly installed")
 	
-	return
-}
-
-/**
- * @brief Equivalent to unix -less-
- * @param fname Name of the file to do less
- * @return void
- */
-void function dt_less(string scalar fname)
-{
-	string colvector ftxt
+	/* Clean up */
+	unlink("stata.toc")
+	if (tocexists) exitstatus = dt_rename_file(tmptocname,"stata.toc")
+	if (!pkgexists) unlink(pkgname+".pkg")
 	
-	if (!fileexists(fname))
-		_error(1, "The file -"+fname+"- does not exists.")
-		
-	ftxt = dt_read_txt(fname)
-	
-	real scalar i, n
-	n =length(ftxt)
-	for(i=1;i<=n;i++)
-		printf("{text}"+ftxt[i]+"\n")
-		
 	return
 }
 
@@ -727,10 +775,16 @@ string scalar dt_stata_path(|real scalar xstata) {
  * @param usr Name of the repo owner
  * @param which Whether to install it from github, bitbucket or googlecode
  */
-void dt_git_install(string scalar pkgname, string scalar usr, | string scalar which) {
+void dt_git_install(
+	string scalar pkgname,
+	| string scalar usr,
+	string scalar which
+	string scalar usrpass
+	) {
 
 	string colvector valid_repos, out
 	string scalar uri
+	real scalar shellreturn
 	valid_repos = ("github","bitbucket","googlecode")
 	
 	/* Checking which version */
@@ -738,25 +792,42 @@ void dt_git_install(string scalar pkgname, string scalar usr, | string scalar wh
 	else if (!length(select(valid_repos,valid_repos:==which)))
 		_error(1,"Invalid repo, try using -github-, -bitbucket- or -googlecode-")
 
+	if ((args() < 2) & (which != "googlecode"))
+		_error(1, sprintf("%s requieres a -usr- name.", which))
+
 	/* Checking git */
 	out = dt_shell("git --version")
 	if (!length(out)) 
-		_error(1, "Git is not install in your OS.")
+		_error(1, "It seems that Git is not install in your OS.")
 	else if (!regexm(out[1,1],"^git version"))
-		_error(1, "Git is not install in your OS.")
+		_error(1, "It seems that  Git is not install in your OS.")
 			
-	/* Check if git is */
-	if (which=="github") uri = sprintf("https://github.com/%s/%s.git", usr, pkgname)
-
-	out = dt_shell("git clone "+uri+" "+c("tmpdir")+"/"+pkgname)
-	if (regexm(out[1,1],"^(e|E)rror"))
+	/* Building the URI */
+	if (args() < 4)
 	{
-		out
-		_error(1,"Could connect to git repo")
+		if      (which == "github"   ) uri = sprintf("https://github.com/%s/%s.git", usr, pkgname)
+		else if (which == "bitbucket") uri = sprintf("https://bitbucket.org/%s/%s.git", usr, pkgname)
+		else if (which == "googlecode") uri = sprintf("https://code.google.com/p/%s/", pkgname)
 	}
+	else
+	{
+		if      (which == "github"   ) uri = sprintf("https://%s@github.com/%s/%s.git", usrpass, usr, pkgname)
+		else if (which == "bitbucket") uri = sprintf("https://%s@bitbucket.org/%s/%s.git", usrpass, usr, pkgname)
+		else if (which == "googlecode") uri = sprintf("https://%s@code.google.com/p/%s/", usrpass, pkgname)
+	}
+	/* Removing the tmp dir */
+	shellreturn=dt_erase_dir(c("tmpdir")+"/"+pkgname)
+	
+	/* Clonning into git repo */
+	out = dt_shell("git clone "+uri+" "+c("tmpdir")+"/"+pkgname)
+	if (length(out)) 
+		if (regexm(out[1,1],"^(e|E)rror"))
+			_error(1,"Could connect to git repo")
 
 	dt_install_on_the_fly(pkgname,J(1,1,""),c("tmpdir")+"/"+pkgname)
 
+	shellreturn=dt_erase_dir(c("tmpdir")+"/"+pkgname)
+	
 	return
 	
 }
