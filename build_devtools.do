@@ -8,8 +8,18 @@ set matastrict on
 mata mata mlib create ldevtools, replace
 do devtools.mata
 do dt_capture.mata
-do dt_st_chars.mata
+do dt_create_pkg.mata
+do dt_git_install.mata
+do dt_install_on_the_fly.mata
+do dt_list_files.mata
 do dt_moxygen.mata
+do dt_read_txt.mata
+do dt_restart_stata.mata
+do dt_shell.mata
+do dt_st_chars.mata
+do dt_stata_capture.mata
+do dt_stata_path.mata
+
 mata mata mlib add ldevtools dt_*(), complete
 
 /* Documenting source code */
