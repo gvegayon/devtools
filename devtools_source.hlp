@@ -1,0 +1,1089 @@
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:Beginning of file -devtools.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+*! vers 0.14.4 14apr2014
+*! author: George G. Vega Yon
+
+/* BULID SOURCE_DOC 
+Creates source documentation from MATA files
+*/
+
+vers 11.0
+
+mata:
+
+{smcl}
+*! {marker dt_random_name}{bf:function -{it:dt_random_name}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Random name generation}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:n}{col 20}Char length
+*!{col 4}{bf:Demo 1}
+
+ /* Random name of length 10 */
+ dt_random_name()
+ /* Random name of length 5 */
+ dt_random_name(5)
+{matacmd dt_inidem(); dt_random_name(); dt_random_name(5); dt_enddem():({it:click to run})}
+
+*!{dup 78:{c -}}{asis}
+string scalar function dt_random_name(| real scalar n) {
+    
+    string scalar output
+    string vector letters
+    real scalar i
+    
+    if (n == J(1,1,.)) n = 10
+    n = n - 1 
+    
+    letters = (tokens(c("alpha")), strofreal(0..9))'
+    output = "_"
+    
+    for(i=1;i<=n;i++) output=output+jumble(letters)[1]
+    
+    return(output)
+}
+
+{smcl}
+*! {marker dt_rename_file}{bf:function -{it:dt_rename_file}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Renames a file using OS}
+*!{dup 78:{c -}}{asis}
+real scalar function dt_rename_file(string scalar fn1, string scalar fn2)
+{
+    /* Checking that both files exists */
+    if (!fileexists(fn1)) _error(1, sprintf("File -%s- does not exitst.",fn1))
+    if (fileexists(fn2)) _error(1, sprintf("File -%s- already exitst.",fn2))
+    
+    if (c("os") == "Windows") return(dt_shell_return("rename "+fn1+" "+fn2))
+    else return(dt_shell_return("mv -f "+fn1+" "+fn2))
+}
+
+{smcl}
+*! {marker dt_erase_file}{bf:function -{it:dt_erase_file}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Erase using OS}
+*!{dup 78:{c -}}{asis}
+real scalar function dt_erase_file(string scalar fns, | string scalar out) {
+    
+    string scalar cmd
+    
+    if (c("os") == "Windows")
+    {
+        fns = subinstr(fns, "/","\",.)
+        cmd = " erase /F "+fns
+    }
+    else cmd = " rm -f "+fns
+    
+    if (args()>1)
+    {
+        out = cmd
+        return(0)
+    }
+    else
+    {
+        return(dt_shell_return(cmd))
+    }
+}
+
+{smcl}
+*! {marker dt_erase_dir}{bf:function -{it:dt_erase_dir}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Dir recursively using OS}
+*!{dup 78:{c -}}{asis}
+real scalar function dt_erase_dir(string scalar xdir, | string scalar out) {
+    
+    string scalar cmd
+    
+    if (c("os") == "Windows")
+    {
+        xdir = subinstr(xdir, "/", "\", .)
+        cmd = "rmdir /S "+xdir
+    }
+    else cmd = "rm -f -r "+xdir
+    
+    if (args()>1)
+    {
+        out = cmd
+        return(0)
+    }
+    else
+    {
+        return(dt_shell_return(cmd))
+    }
+    
+}
+
+{smcl}
+*! {marker dt_copy_file}{bf:function -{it:dt_copy_file}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Copy using OS}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:fn1}{col 20}Original file
+*!{col 6}{bf:fn2}{col 20}New filename
+*!{col 6}{bf:out}{col 20}Optional, if specified then the cmd is not executed, rather it stores it at -out-
+*!{col 4}{bf:returns:}
+*!{col 6}{it:A force copy from -fn1- to -fn2-}
+*!{dup 78:{c -}}{asis}
+real scalar function dt_copy_file(string scalar fn1, string scalar fn2, | string scalar out) {
+
+    string scalar cmd
+    
+    if (c("os") == "Windows")
+    {
+        /* Avoiding modifier errors */
+        fn1 = subinstr(fn1, "/", "\", .)
+        fn2 = subinstr(fn2, "/", "\", .)
+        cmd = "copy /Y "+fn1+" "+fn2
+    }
+    else cmd = " cp -f "+fn1+" "+fn2
+    
+    cmd
+    if (args()>2)
+    {
+        out = cmd
+        return(0)
+    }
+    else 
+    {
+        return(dt_shell_return(cmd))
+    }
+}
+
+{smcl}
+*! {marker dt_inidem}{bf:function -{it:dt_inidem}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Begins a demo}
+*!{dup 78:{c -}}{asis}
+void function dt_inidem(|string scalar demoname, real scalar preserve) {
+    if (args() < 2 | preserve == 1) stata("preserve")
+    display("{txt}{hline 2} begin demo {hline}")
+    display("")
+    return
+}
+
+{smcl}
+*! {marker dt_enddem}{bf:function -{it:dt_enddem}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Ends a demo}
+*!{dup 78:{c -}}{asis}
+void function dt_enddem(| real scalar preserve) {
+    if (args() < 1 | preserve == 1) stata("restore")
+    display("")
+    display("{txt}{hline 2} end demo {hline}")
+    return
+}
+
+{smcl}
+*! {marker dt_highlight}{bf:function -{it:dt_highlight}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Recursive highlighting for mata.}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:line}{col 20}String to highlight.
+*!{col 4}{bf:returns:}
+*!{col 6}{it:A highlighted text (to use with display)}
+*!{col 4}{bf:Demo 1}
+
+ txt = dt_highlight(`"build(1+1-less(h)- signa("hola") + 1 - insert("chao"))"')
+ txt
+ display(txt)
+{matacmd dt_inidem(); txt = dt_highlight(`"build(1+1-less(h)- signa("hola") + 1 - insert("chao"))"'); txt; display(txt); dt_enddem():({it:click to run})}
+
+*!{dup 78:{c -}}{asis}
+string scalar dt_highlight(string scalar line) {
+    string scalar frac, newline
+    real scalar test
+    
+    string scalar regexfun, regexstr
+    regexfun = "^(.+[+]|.+[*]|.+-|.+/|)?[\s ]*([a-zA-Z0-9_]+)([(].+)"
+    regexstr = `"^(.+)?(["][a-zA-Z0-9_]+["])(.+)"'
+    
+    test = 1
+    newline =""
+    /* Parsing functions */
+    while (test)
+    {
+        if (regexm(line, regexfun))
+        {
+            frac = regexs(2)
+            newline = sprintf("{bf:%s}",frac) + regexs(3)+newline
+            line = subinstr(line, frac+regexs(3), "", 1)
+        }
+        else test = 0
+    }
+
+    test = 1
+    line = line+newline
+    newline =""
+    /* Parsing strings */
+    while (test)
+    {
+        if (regexm(line, regexstr))
+        {
+            frac = regexs(2)
+            newline = sprintf("{it:%s}",frac)+ regexs(3) + newline 
+            line = subinstr(line, frac+regexs(3), "", 1)
+        }
+        else test = 0
+        
+    }
+        
+    return("{text:"+line+newline+"}")
+}
+
+{smcl}
+*! {marker dt_txt_split}{bf:function -{it:dt_txt_split}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Split a text into many lines}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:txt}{col 20}Text to analize (and split)
+*!{col 6}{bf:n}{col 20}Max line width
+*!{col 6}{bf:Indenting}{col 20}for the next lines
+*!{col 4}{bf:returns:}
+*!{col 6}{it:A text splitted into several lines.}
+*!{col 4}{bf:Demo 1}
+
+ printf(dt_txt_split("There was this little fella who once jumped into the water...\n", 10, 2))
+{matacmd dt_inidem(); printf(dt_txt_split("There was this little fella who once jumped into the water...\n", 10, 2)); dt_enddem():({it:click to run})}
+
+*!{col 4}{bf:Demo 2}
+
+ printf(dt_txt_split("There was this little fella who once jumped into the water...\n", 15, 4))
+{matacmd dt_inidem(); printf(dt_txt_split("There was this little fella who once jumped into the water...\n", 15, 4)); dt_enddem():({it:click to run})}
+
+*!{dup 78:{c -}}{asis}
+string scalar function dt_txt_split(string scalar txt, | real scalar n, real scalar indent) {
+
+    string scalar newtxt, sindent
+    real scalar curn, i
+
+    if (n==J(1,1,.))
+    {
+        n = 80
+        indent = 0
+    }
+    
+    /* Creating the lines indenting */
+    sindent = ""
+    for(i=0;i<indent;i++) sindent = sindent + " "
+    
+    i = 0
+    if ((curn = strlen(txt)) > n)
+        while ((curn=strlen(txt)) > 0) {
+            
+            if (!i++) newtxt = substr(txt,1,n)
+            else newtxt = newtxt + sprintf("\n"+sindent) + substr(txt,1,n)
+            txt = substr(txt,n+1)
+            
+        }
+        
+    return(newtxt)
+}
+
+
+{smcl}
+*! {marker dt_lookuptxt}{bf:function -{it:dt_lookuptxt}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Looks up for a regex within a list of plain text files}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:regex}{col 20}Regex to lookup for
+*!{col 6}{bf:fixed}{col 20}Whether to interpret the regex arg as a regex or not (1: Not, 0: Yes)
+*!{col 6}{bf:fns}{col 20}List of files to look in (default is to take all .do .ado .hlp .sthlp and .mata)
+*!{col 4}{bf:returns:}
+*!{col 6}{it:Coordinates (line:file) where the regex was found }
+*!{dup 78:{c -}}{asis}
+void dt_lookuptxt(string scalar pattern , | real scalar fixed, string colvector fns) {
+    
+    if (!length(fns)) fns = dir(".","files","*.do")\dir(".","files","*.ado")\dir(".","files","*.mata")
+    
+    if (!length(fns)) return
+    
+    real scalar fh, nfs, i ,j
+    string scalar line
+    
+    nfs = length(fns)
+        
+    for(i=1;i<=nfs;i++)
+    {
+        // printf("Revisando archivo %s\n",fns[i])
+        fh = fopen(fns[i],"r")
+        j=0
+        while((line=fget(fh)) != J(0,0,"")) {
+            j = j+1
+
+            if (fixed)
+            {
+                if (strmatch(line,"*"+pattern+"*"))
+                    printf("In line %g on file %s\n", j, fns[i])
+            }
+            else
+            {
+                if (regexm(line, pattern))
+                    printf("In line %g on file %s\n", j,fns[i])
+            }
+        }
+
+        fclose(fh)
+    }
+
+}
+
+{smcl}
+*! {marker dt_uninstall_pkg}{bf:function -{it:dt_uninstall_pkg}- in file -{it:devtools.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Uninstall all versions of a certain package}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:pkgname}{col 20}Name of the package
+*!{col 4}{bf:returns:}
+*!{col 6}{it:Nothing}
+*!{dup 78:{c -}}{asis}
+void function dt_uninstall_pkg(string scalar pkgname) {
+
+    string scalar pkgs
+    string scalar logname, regex, line, tmppkg
+    real scalar fh, counter
+
+    counter = 0
+    logname = st_tempfilename()
+    while (counter >= 0)
+    {
+        /* Listing files */
+        stata("log using "+logname+", replace text")
+        stata("ado dir "+pkgname)
+        stata("log close")
+
+        /* Looking for pkgs and removing them */
+        fh = fopen(logname, "r")
+
+        regex = "^[ ]*([[][0-9]+[]]) package "+pkgname
+        counter = 0
+        while((line=fget(fh)) != J(0,0,"")) 
+        {
+            /* If the package matched, then remove it */
+            if (regexm(line, regex)) 
+            {
+                tmppkg = regexs(1)
+                display("Will remove the package "+tmppkg+" ("+pkgname+")")
+                if (dt_stata_capture("ado uninstall "+tmppkg)) continue
+                else counter = counter + 1
+            }
+        }
+
+        fclose(fh)
+        unlink(logname)
+        
+        if (counter == 0) counter = -1
+        else counter = 0
+    }
+    return
+}
+end
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:End of file -devtools.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:Beginning of file -dt_capture.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+mata
+
+    class dt_Capture {
+        pointer(function) scalar func_ptr
+        pointer matrix arg_ptrs
+        pointer scalar rv_ptr
+    }
+    
+    dt_capture = dt_Capture()
+
+{smcl}
+*! {marker dt_capture}{bf:function -{it:dt_capture}- in file -{it:dt_capture.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Capture Mata function errors}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:func_pointer}{col 20}pointer to a function (i.e., a pointer(function) scalar)
+*!{col 6}{bf:arg_ptrs}{col 20}vector containing pointers to the intended arguments, or a zero-dimensional matrix if the function takes no arguments
+*!{col 6}{bf:rv_ptr}{col 20}(optional) is a pointer to a pre-defined variable that will hold the return value of the function if it doesn't abort with error
+*!{col 4}{bf:returns:}
+*!{col 6}{it:real scalar error code (zero if no error)}
+*!{dup 78:{c -}}{asis}
+    real scalar dt_capture(pointer(function) scalar func_ptr,
+                           pointer matrix arg_ptrs,
+                           | pointer scalar rv_ptr)
+    {
+        real scalar rc, i, nargs
+        string scalar run_str, arg_template
+        external class dt_Capture scalar dt_capture
+        
+        // It seems that any errors in pointer arguments get captured
+        // by the Stata capture below. So, test them here.
+        if (eltype(func_ptr) != "pointer") {
+            exit(_error(3257, "1st arg should be a pointer to a function"))
+        }
+        if (orgtype(func_ptr) != "scalar") {
+            exit(_error(3200, "1st arg should be a pointer scalar"))
+        }
+        if (args() == 3) {
+            if (eltype(rv_ptr) != "pointer") {
+                exit(_error(3257, "3rd arg should be a pointer"))
+            }
+            if (orgtype(rv_ptr) != "scalar") {
+                exit(_error(3200, "3rd arg should be a pointer scalar"))
+            }
+        }
+        
+        // Check dimensions of arg_ptrs. It is allowed to be a vector, or
+        // a zero-dimensional matrix if wanting to pass zero arguments.
+        // I.e., J(0,0,.), J(0,1,.) J(123,0,.) are all allowed.
+        if (rows(arg_ptrs) > 1 & cols(arg_ptrs) > 1) {
+            exit(_error(3200, "2nd arg should be vector or zero-dim matrix"))
+        }
+        if (rows(arg_ptrs) != 0 & cols(arg_ptrs) !=0 & 
+                eltype(arg_ptrs) != "pointer") {
+            exit(_error(3257, "2nd arg should be a vector of pointers"))
+        }
+        
+        dt_capture.func_ptr = func_ptr
+        dt_capture.arg_ptrs = arg_ptrs
+        
+        if (args() == 3) {
+            dt_capture.rv_ptr = rv_ptr
+            run_str = "*(dt_capture.rv_ptr) = (*dt_capture.func_ptr)("
+        }
+        else {
+            run_str = "(*dt_capture.func_ptr)("
+        }
+        arg_template = "*(dt_capture.arg_ptrs[%f])%s"
+        
+        nargs = length(arg_ptrs)
+        for (i = 1; i <= nargs; i++) {
+            run_str = run_str + sprintf(arg_template, i, i == nargs ? "" : ",") 
+        }
+        run_str = run_str + ")"
+        
+        stata("capture mata: " + run_str)
+        stata("local rc = _rc")
+        rc = strtoreal(st_local("rc"))
+        
+        // remove references to func_ptr, etc.
+        dt_capture.func_ptr = NULL
+        dt_capture.arg_ptrs = J(0,0,NULL)
+        dt_capture.rv_ptr = NULL
+        
+        return(rc)
+    }
+    
+{smcl}
+*! {marker dt_method_capture}{bf:function -{it:dt_method_capture}- in file -{it:dt_capture.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Capture errors in Mata class functions}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:class_name}{col 20}tring name of class
+*!{col 6}{bf:func_name}{col 20}tring name of function
+*!{col 6}{bf:arg_ptrs}{col 20}vector containing pointers to the intended arguments, or a zero-dimensional matrix if the function takes no arguments
+*!{col 6}{bf:rv_ptr}{col 20}(optional) is a pointer to a pre-defined variable that will hold the return value of the function if it doesn't abort with error
+*!{col 4}{bf:returns:}
+*!{col 6}{it:real scalar error code (zero if no error)}
+*!{dup 78:{c -}}{asis}
+    real scalar dt_method_capture(string scalar class_name,
+                                  string scalar func_name, 
+                                  pointer matrix arg_ptrs,
+                                  | pointer scalar rv_ptr)
+    {
+        real scalar rc, i, nargs
+        string scalar run_str, arg_template
+        external class dt_Capture scalar dt_capture
+        
+        // It seems that any errors in pointer arguments get captured
+        // by the Stata capture below. So, test them here.
+        if (args() == 4) {
+            if (eltype(rv_ptr) != "pointer") {
+                exit(_error(3257, "4th arg should be a pointer"))
+            }
+            if (orgtype(rv_ptr) != "scalar") {
+                exit(_error(3200, "4th arg should be a pointer scalar"))
+            }
+        }
+        
+        // Check dimensions of arg_ptrs. It is allowed to be a vector, or
+        // a zero-dimensional matrix if wanting to pass zero arguments.
+        // I.e., J(0,0,.), J(0,1,.) J(123,0,.) are all allowed.
+        if (rows(arg_ptrs) > 1 & cols(arg_ptrs) > 1) {
+            exit(_error(3200, "3rd arg should be vector or zero-dim matrix"))
+        }
+        if (rows(arg_ptrs) != 0 & cols(arg_ptrs) !=0 & 
+                eltype(arg_ptrs) != "pointer") {
+            exit(_error(3257, "3rd arg should be a vector of pointers"))
+        }
+        
+        
+        dt_capture.arg_ptrs = arg_ptrs
+        
+        if (args() == 4) {
+            dt_capture.rv_ptr = rv_ptr
+            run_str = "*(dt_capture.rv_ptr) = " + ///
+                      class_name + "." + func_name + "("
+        }
+        else {
+            run_str = class_name + "." + func_name + "("
+        }
+        arg_template = "*(dt_capture.arg_ptrs[%f])%s"
+        
+        nargs = length(arg_ptrs)
+        for (i = 1; i <= nargs; i++) {
+            run_str = run_str + sprintf(arg_template, i, i == nargs ? "" : ",") 
+        }
+        run_str = run_str + ")"
+        
+        stata("capture mata: " + run_str)
+        stata("local rc = _rc")
+        rc = strtoreal(st_local("rc"))
+        
+        // remove references
+        dt_capture.arg_ptrs = J(0,0,NULL)
+        dt_capture.rv_ptr = NULL
+    
+        return(rc)
+    }
+end
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:End of file -dt_capture.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:Beginning of file -dt_st_chars.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+mata
+
+{smcl}
+*! {marker dt_getchars}{bf:function -{it:dt_getchars}- in file -{it:dt_st_chars.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Get dataset characteristics from Stata as associative array}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:evarid}{col 20}(optional) scalar variable number, variable name, or "_dta"
+*!{col 4}{bf:returns:}
+*!{col 6}{it:associative array}
+*!{col 4}{bf:Demo 1}
+
+ stata("sysuse auto, clear")
+ dtachars = dt_st_chars("_dta")
+ asarray_keys(dtachars)
+{matacmd dt_inidem(); stata("sysuse auto, clear"); dtachars = dt_st_chars("_dta"); asarray_keys(dtachars); dt_enddem():({it:click to run})}
+
+*!{dup 78:{c -}}{asis}
+transmorphic scalar dt_getchars(| transmorphic scalar evarid)
+{
+    transmorphic scalar A, B
+    string vector evarlist, charnames
+    string scalar evarname, charnamei, idtype
+    real scalar i, j, nvar, evarnum, useall
+    
+    nvar = st_nvar()
+    
+    idtype = eltype(evarid)
+    
+    // Mata doesn't short-circuit logical tests
+    useall = 1
+    if (args() == 1) {
+        useall = 0
+        if (evarid == "") {
+            useall == 1
+        }
+        else if (idtype == "real") {
+            useall = missing(evarid)
+        }
+    }
+    
+    // if !useall check for errors and get chars for specified evarid
+    if (!useall) {
+        if (idtype == "real") {
+            evarnum = round(evarid)
+            if (evarid < 1 | evarid > nvar) {
+                _error(3300, "argument out of range")
+            }
+            evarname = st_varname(evarnum)
+        }
+        else if (idtype == "string") {
+            if (evarid == substr("_dta", 1, strlen(evarid))) {
+                evarname = "_dta"
+            }
+            else {
+                evarnum = _st_varindex(evarid, 1)
+                if (evarnum == .) {
+                    _error(3500, "invalid Stata variable name")
+                }
+                evarname = st_varname(evarnum)
+            }
+        }
+        else {
+            _error(3255, "string or real required")
+        }
+        
+        // It seems that charnames cannot contain binary.
+        // If they can, using a local macro as below is not safe.
+        stata("local _devtools_local : char " + evarname + "[]")
+        
+        charnames = tokens(st_local("_devtools_local"))
+        
+        // make associative array
+        A = asarray_create()
+        for (i = 1; i <= length(charnames); i++) {
+            charnamei = charnames[i]
+            asarray(A, charnamei, st_global(evarname + "[" + charnamei + "]"))
+        }
+        
+        return(A)
+    }
+    
+    evarlist = J(1, nvar + 1, "")
+    evarlist[1] = "_dta"
+    for (i = 1; i <= nvar; i++) {
+        evarlist[i + 1] = st_varname(i)
+    }
+    
+    // make associative array
+    A = asarray_create()
+    
+    for (i = 1; i <= length(evarlist); i++) {
+        evarname = evarlist[i]
+    
+        // It seems that charnames cannot contain binary.
+        // If they can, using a local macro as below is not safe.
+        stata("local _devtools_local : char " + evarname + "[]")
+        
+        charnames = tokens(st_local("_devtools_local"))
+        
+        if (length(charnames) == 0) continue
+        
+        // make sub-array
+        B = asarray_create()
+        for (j = 1; j <= length(charnames); j++) {
+            charnamei = charnames[j]
+            asarray(B, charnamei, st_global(evarname + "[" + charnamei + "]"))
+        }
+        asarray(A, evarname, B)
+    }
+    
+    return(A)
+}
+
+{smcl}
+*! {marker dt_setchars}{bf:function -{it:dt_setchars}- in file -{it:dt_st_chars.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Set Stata dataset characteristics using associative array}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:evarid}{col 20}calar variable number, variable name, or "_dta". If setting all chars use "" or a missing value.
+*!{col 6}{bf:chararry}{col 20}associative array from which to set characteristics
+*!{dup 78:{c -}}{asis}
+void dt_setchars(transmorphic scalar evarid, transmorphic scalar chararray)
+{
+    transmorphic B
+    string vector evarlist, charnames
+    string scalar evarname, charnamei, idtype
+    real scalar i, j, nvar, evarnum, useall
+    
+    nvar = st_nvar()
+    
+    idtype = eltype(evarid)
+    
+    // Mata doesn't short-circuit logical tests
+    useall = 0
+    if (evarid == "") {
+        useall == 1
+    }
+    else if (idtype == "real") {
+        useall = missing(evarid)
+    }
+    
+    // if !useall check for errors and get chars for specified evarid
+    if (!useall) {
+        if (idtype == "real") {
+            evarnum = round(evarid)
+            if (evarid < 1 | evarid > nvar) {
+                _error(3300, "argument out of range")
+            }
+            evarname = st_varname(evarnum)
+        }
+        else if (idtype == "string") {
+            if (evarid == substr("_dta", 1, strlen(evarid))) {
+                evarname = "_dta"
+            }
+            else {
+                evarnum = _st_varindex(evarid, 1)
+                if (evarnum == .) {
+                    _error(3500, "invalid Stata variable name")
+                }
+                evarname = st_varname(evarnum)
+            }
+        }
+        else {
+            _error(3255, "string or real required")
+        }
+        
+        charnames = asarray_keys(chararray)
+        
+        for (i = 1; i <= length(charnames); i++) {
+            charnamei = charnames[i]
+            st_global(
+                evarname + "[" + charnamei + "]",
+                asarray(chararray, charnamei)
+            )
+        }
+    }
+    
+    evarlist = J(1, nvar + 1, "")
+    evarlist[1] = "_dta"
+    for (i = 1; i <= nvar; i++) {
+        evarlist[i + 1] = st_varname(i)
+    }
+    
+    for (i = 1; i <= length(evarlist); i++) {
+        evarname = evarlist[i]
+        
+        B = asarray(chararray, evarname)
+        
+        if (B == J(0,0,.)) continue
+        
+        charnames = asarray_keys(B)
+        
+        for (j = 1; j <= length(charnames); j++) {
+            charnamei = charnames[j]
+            st_global(
+                evarname + "[" + charnamei + "]",
+                asarray(B, charnamei)
+            )
+        }
+    }
+}
+
+{smcl}
+*! {marker dt_vlasarray}{bf:function -{it:dt_vlasarray}- in file -{it:dt_st_chars.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Get value label from Stata as associative array, or set value label from associative array}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:vlname}{col 20}calar containing value label name
+*!{col 6}{bf:vlarray}{col 20}(optional) associative array with integer keys and string contents
+*!{col 4}{bf:returns:}
+*!{col 6}{it:J(0,0,.) (void) if setting value vabel, associative array if retreiving value label}
+*!{dup 78:{c -}}{asis}
+transmorphic dt_vlasarray(string scalar vlname, | transmorphic scalar vlarray)
+{
+    transmorphic scalar A
+    string vector text
+    real vector values
+    real scalar i
+    
+    // args() == 1 get associative array
+    if (args() == 1) {
+        A = asarray_create("real")
+        
+        if (st_vlexists(vlname)) {
+            st_vlload(vlname, values, text)
+            
+            for (i = 1; i <= length(values); i++) {
+                asarray(A, values[i], text[i])
+            }
+        }
+        
+        return(A)
+    }
+    
+    // if args() == 2 set value label
+    if (st_vlexists(vlname)) {
+        st_vldrop(vlname)
+    }
+    
+    values = asarray_keys(vlarray)
+    
+    text = J(rows(values), cols(values), "")
+    
+    for (i = 1; i <= length(values); i++) {
+        text[i] = asarray(vlarray, floor(values[i]))
+    }
+    
+    st_vlmodify(vlname, values, text)
+}
+
+end
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:End of file -dt_st_chars.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:Beginning of file -dt_moxygen.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
+mata
+
+{smcl}
+*! {marker dt_moxygen}{bf:function -{it:dt_moxygen}- in file -{it:dt_moxygen.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Builds a help file from a MATA source file.}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:fns}{col 20}A List of mata files.
+*!{col 6}{bf:output}{col 20}Name of the resulting file
+*!{col 6}{bf:replace}{col 20}Whether to replace or not a hlp file.
+*!{col 4}{bf:returns:}
+*!{col 6}{it:A nice help file showing source code.}
+*!{dup 78:{c -}}{asis}
+void dt_moxygen(
+    string vector fns,
+    string scalar output,
+    | real scalar replace)
+{
+    
+    /* Setup */
+    real scalar i, j, fh_input, fh_output
+    string scalar fn, line, funname
+    string scalar regexp_fun_head, rxp_oxy_brief, rxp_oxy_param, rxp_oxy_returns, rxp_oxy_auth, oxy
+    string scalar rxp_oxy_demo
+    string vector eltype_list, orgtype_list
+    
+    string scalar tab
+    tab = "([\s ]|"+sprintf("\t")+")*"
+    
+    ////////////////////////////////////////////////////////////////////////////////
+    /* Building regexp for match functions headers */
+    // mata
+    eltype_list  = "transmorphic", "numeric", "real", "complex", "string", "pointer"
+    orgtype_list = "matrix", "vector", "rowvector", "colvector", "scalar"
+    
+    /* Every single combination */
+    regexp_fun_head = "^"+tab+"(void|"
+    for(i=1;i<=length(eltype_list);i++)
+        for(j=1;j<=length(orgtype_list);j++)
+            regexp_fun_head = regexp_fun_head+eltype_list[i]+"[\s ]+"+orgtype_list[j]+"|"
+    
+    /* Single element */
+    for(i=1;i<=length(eltype_list);i++)
+        regexp_fun_head = regexp_fun_head+eltype_list[i]+"|"
+    
+    for(i=1;i<=length(orgtype_list);i++)
+        if(i!=length(orgtype_list)) regexp_fun_head = regexp_fun_head+orgtype_list[i]+"|"
+        else regexp_fun_head = regexp_fun_head+orgtype_list[i]+")[\s ]*(function)?[\s ]+([a-zA-Z0-9_]+)[(]"
+    
+    /* MATA oxygen */
+    rxp_oxy_brief   = "^"+tab+"[*][\s ]*@brief[\s ]+(.*)"
+    rxp_oxy_param   = "^"+tab+"[*][\s ]*@param[\s ]+([a-zA-Z0-9_]+)[\s ]*(.*)"    
+    rxp_oxy_returns = "^"+tab+"[*][\s ]*@(returns?|results?)[\s ]*(.*)"
+    rxp_oxy_auth    = "^"+tab+"[*][\s ]*@authors?[\s ]+(.*)"
+    rxp_oxy_demo = "^"+tab+"[*][\s ]*@demo(.*)"
+
+    /*if (regexm("void build_source_doc(", regexp_fun_head))
+        regexs(1), regexs(3)
+    regexp_fun_head
+    
+    end*/
+    
+    ////////////////////////////////////////////////////////////////////////////////
+    if (replace == J(1,1,.)) replace = 1
+    
+    /* Checks if the file has to be replaced */
+    if (!regexm(output, "[.]hlp$|[.]sthlp$")) output = output + ".sthlp"
+    if (fileexists(output) & !replace)
+    {
+        errprintf("File -%s- already exists. Set -replace- option to 1.", output)
+        exit(0)
+    }
+    
+    /* Starting the hlp file */
+    if (fileexists(output)) unlink(output)
+    fh_output = fopen(output, "w", 1)
+    
+    /* Looping over files */
+    for(i=1;i<=length(fns);i++)
+    {
+        /* Picking the ith filename */
+        fn = fns[i]
+        
+        /* If it exists */
+        if (fileexists(fn))
+        {
+            /* Opening the file */
+            fh_input = fopen(fn, "r")
+            
+            /* Header of the file */
+            fput(fh_output, "*! {smcl}")
+            fput(fh_output, "*! {c TLC}{dup 78:{c -}}{c TRC}")
+            fput(fh_output, "*! {c |} {bf:Beginning of file -"+fn+"-}{col 83}{c |}")
+            fput(fh_output, "*! {c BLC}{dup 78:{c -}}{c BRC}")
+            
+            oxy = ""
+            real scalar nparams, inOxygen, nauthors, inDemo, nDemos
+            string scalar demostr, demoline
+            nparams  = 0
+            nauthors = 0
+            inOxygen = 0
+            inDemo   = 0
+            demostr  = ""
+            demoline = ""
+            nDemos   = 0
+            while((line = fget(fh_input)) != J(0,0,""))
+            {
+                /* MATAoxygen */
+                if (regexm(line, "^"+tab+"[/][*]([*]|[!])(d?oxygen)?"+tab+"$") | inOxygen) {
+                
+                    if (regexm(line, "^"+tab+"[*][/]"+tab+"$") & !inDemo)
+                    {
+                        inOxygen = 0
+                        continue
+                    }
+                    
+                    /* Incrementing the number of oxygen lines */
+                    if (!inOxygen++) line = fget(fh_input)
+                    
+                    if (regexm(line, rxp_oxy_brief))
+                    {
+                        oxy = sprintf("\n*!{dup 78:{c -}}\n*!{col 4}{it:%s}",regexs(2))
+                        continue
+                    }
+                    if (regexm(line, rxp_oxy_auth))
+                    {
+                        if (!nauthors++) oxy = oxy+sprintf("\n*!{col 4}{bf:author(s):}")
+                        oxy = oxy+sprintf("\n*!{col 6}{it:%s}",regexs(2))
+                        continue
+                    }
+                    if (regexm(line, rxp_oxy_param))
+                    {
+                        if (!nparams++) oxy = oxy+sprintf("\n*!{col 4}{bf:parameters:}")
+                        oxy = oxy+sprintf("\n*!{col 6}{bf:%s}{col 20}%s",regexs(2),regexs(3))
+                        continue
+                    }
+                    if (regexm(line, rxp_oxy_returns))
+                    {
+                        oxy = oxy+sprintf("\n*!{col 4}{bf:%s:}\n*!{col 6}{it:%s}", regexs(2), regexs(3))
+                        continue
+                    }
+                    if (regexm(line, rxp_oxy_demo) | inDemo)
+                    {
+                        string scalar democmd
+                        
+                        /* Checking if it ended with another oxy object */
+                        if ((regexm(line, rxp_oxy_demo) & inDemo) | regexm(line, "^"+tab+"@") | regexm(line, "^"+tab+"[*][/]"+tab+"$")) 
+                        {
+                            
+                            oxy      = oxy + sprintf("\n%s\n%s dt_enddem():({it:click to run})}\n",demostr,demoline)
+                            demostr  = ""
+                            demoline = ""
+                            inDemo   = 0
+                            
+                        }
+                                    
+                        /* When it first enters */
+                        if (regexm(line, rxp_oxy_demo) & !inDemo)
+                        {
+                            demoline = "{matacmd dt_inidem();"
+                            demostr  = ""
+                            inDemo   = 1
+                            nDemos   = nDemos + 1
+                            
+                            oxy = oxy + sprintf("\n*!{col 4}{bf:Demo %g}", nDemos)
+                            continue
+                        }
+                        
+                        democmd = sprintf("%s", regexr(line,"^"+tab+"[*]",""))
+                        
+                        if (!regexm(democmd,"^"+tab+"/[*](.*)[*]/")) demoline = demoline+democmd+";"
+                        demostr  = demostr+sprintf("\n%s",democmd)
+                        continue
+                    }
+                }
+                /* Checking if it is a function header */
+                if (regexm(line, regexp_fun_head)) 
+                {
+                    funname = regexs(4)
+                    
+                    fput(fh_output, "{smcl}")
+                    fput(fh_output, "*! {marker "+funname+"}{bf:function -{it:"+funname+"}- in file -{it:"+fn+"}-}")
+                    fwrite(fh_output, "*! {back:{it:(previous page)}}")
+                    
+//                    printf("{help %s##%s:%s}", regexr(output, "[.]sthlp$|[.]hlp$", ""), funname, funname)
+                    if (oxy!="") {
+                        fwrite(fh_output, oxy)
+                        oxy      = ""
+                        nparams  = 0
+                        nauthors = 0
+                        inOxygen = 0
+                        nDemos   = 0
+                    }
+                    fput(fh_output,sprintf("\n*!{dup 78:{c -}}{asis}"))
+                }
+                fput(fh_output, subinstr(line, char(9), "    "))
+ 
+            }
+                        
+            fclose(fh_input)
+            
+            /* Footer of the file */
+            fput(fh_output, "*! {smcl}")
+            fput(fh_output, "*! {c TLC}{dup 78:{c -}}{c TRC}")
+            fput(fh_output, "*! {c |} {bf:End of file -"+fn+"-}{col 83}{c |}")
+            fput(fh_output, "*! {c BLC}{dup 78:{c -}}{c BRC}")
+            
+            continue
+        }
+        
+        /* If it does not exists */
+        printf("File -%s- doesn't exists\n", fn)
+        continue
+                
+    }
+    
+    fclose(fh_output)
+}
+
+
+{smcl}
+*! {marker dt_moxygen_preview}{bf:function -{it:dt_moxygen_preview}- in file -{it:dt_moxygen.mata}-}
+*! {back:{it:(previous page)}}
+*!{dup 78:{c -}}
+*!{col 4}{it:Builds a temp source help}
+*!{col 4}{bf:parameters:}
+*!{col 6}{bf:fns}{col 20}A vector of file names to be parsed for Mata oxygen.
+*!{col 6}{bf:output}{col 20}Name of the output file.
+*!{col 6}{bf:replace}{col 20}Whether to replace the file or not.
+*!{col 4}{bf:returns:}
+*!{col 6}{it:a hlp file (and a view of it).}
+*!{dup 78:{c -}}{asis}
+void function dt_moxygen_preview(| string vector fns, string scalar output, real scalar replace) {
+
+    /* Filling emptyness */
+    if (fns == J(1, 0, ""))  fns = dir(".","files","*.mata")
+    if (output == J(1,1,"")) {
+        output  = st_tempfilename()
+        replace = 1
+    }
+    
+    /* Building and viewing */
+    dt_moxygen(fns, output, replace)
+    
+    stata("view "+output)
+    
+    return
+    
+}
+
+end
+*! {smcl}
+*! {c TLC}{dup 78:{c -}}{c TRC}
+*! {c |} {bf:End of file -dt_moxygen.mata-}{col 83}{c |}
+*! {c BLC}{dup 78:{c -}}{c BRC}
