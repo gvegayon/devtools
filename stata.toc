@@ -1,0 +1,4 @@
+v 3
+d devtools Author: George Vega, James Fiedler
+
+p devtools Tools for the stata developer.

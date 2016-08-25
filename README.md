@@ -31,6 +31,22 @@ available functions is:
 * `dt_rename_file()` Rename a file through OS cmdline.
 
 Plus a set of functions to build and call modules' (packages') demos!
+## Installation
+For installing from Stata version \>=13
+
+``` stata
+. net install devtools, from(https://raw.github.com/gvegayon/devtools/master/) replace
+. mata mata mlib index
+```
+
+For Stata version \<12, download as zip, unzip, and then replace the above -net install- with
+
+``` stata
+. net install devtools, from(full_local_path_to_files) replace
+```
+
+For earlier versions of Stata, you will have to download the package and build it (run `build_devtools.do`) and then install from the directory.
+
 
 ## Authors
 George Vega (g dot vegayon at gmail dot com)

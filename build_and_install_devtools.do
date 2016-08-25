@@ -37,5 +37,4 @@ dt_create_pkg(
 end
 */
 
-//For installing see the build_and_install_devtools.do
-//mata dt_install_on_the_fly("devtools")
+mata dt_install_on_the_fly("devtools")
